@@ -57,14 +57,12 @@ public class JdbcOutboxRepository implements OutboxRepository {
     }
 
     @Override
-    public boolean insertIfAbsent(OutboxMessage message) {
+    public void insert(OutboxMessage message) {
         try {
-            long id = sql(message);
-            message.setId(id);
-            return true;
+            message.setId(sql(message));
         } catch (DuplicateKeyException e) {
             // MySQL/InnoDB only: a failed single statement does not abort the transaction.
-            return false;
+            throw new DuplicateMessageException(message.getMsgId(), e);
         }
     }
 

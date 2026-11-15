@@ -26,9 +26,11 @@ import java.util.List;
 public interface OutboxRepository {
 
     /**
-     * Inserts and fills the generated id. Returns false when msg_id already exists.
+     * Inserts the message and fills its generated id.
+     *
+     * @throws DuplicateMessageException when msg_id already exists
      */
-    boolean insertIfAbsent(OutboxMessage message);
+    void insert(OutboxMessage message);
 
     OutboxMessage findById(Long id);
 
