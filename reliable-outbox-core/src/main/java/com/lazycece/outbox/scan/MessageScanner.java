@@ -55,8 +55,8 @@ public class MessageScanner {
      * async dispatch. Invoked on demand by the integrator's scheduling framework.
      */
     public void scan() {
-        int batchSize = properties.getScanBatchSize();
-        for (int round = 0; round < properties.getMaxScanBatchesPerRun(); round++) {
+        int batchSize = properties.getScan().getBatchSize();
+        for (int round = 0; round < properties.getScan().getMaxBatchesPerRun(); round++) {
             List<Long> ids = repository.scanDispatchableIds(batchSize, LocalDateTime.now());
             if (ids.isEmpty()) {
                 return;
@@ -68,7 +68,7 @@ public class MessageScanner {
                 LocalDateTime now = LocalDateTime.now();
                 String ownerToken = UUID.randomUUID().toString();
                 if (!repository.tryAcquireDue(id, ownerToken,
-                        now.plus(properties.getOwnerLease()), now)) {
+                        now.plus(properties.getDispatch().getLeaseDuration()), now)) {
                     continue;
                 }
                 try {

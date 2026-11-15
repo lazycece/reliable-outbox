@@ -101,7 +101,7 @@ public class DefaultMessageClient implements MessageClient {
         message.setRetryCount(0);
         message.setCreatedAt(now);
         message.setUpdatedAt(now);
-        message.setNextRetryTime(now.plus(properties.getInitScanGrace()));
+        message.setNextRetryTime(now.plus(properties.getDispatch().getInitialGrace()));
     }
 
     private void submitDispatch(Long id) {
@@ -140,15 +140,15 @@ public class DefaultMessageClient implements MessageClient {
                     "msgId must be 1-64 characters of ASCII letters, digits, underscore or hyphen");
         }
         int payloadBytes = message.getPayload().getBytes(StandardCharsets.UTF_8).length;
-        if (payloadBytes > properties.getMaxPayloadBytes()) {
+        if (payloadBytes > properties.getLimits().getPayloadBytes()) {
             throw new MessageTooLargeException("payload", payloadBytes,
-                    properties.getMaxPayloadBytes());
+                    properties.getLimits().getPayloadBytes());
         }
         if (message.getHeaders() != null) {
             int headerBytes = message.getHeaders().getBytes(StandardCharsets.UTF_8).length;
-            if (headerBytes > properties.getMaxHeadersBytes()) {
+            if (headerBytes > properties.getLimits().getHeadersBytes()) {
                 throw new MessageTooLargeException("headers", headerBytes,
-                        properties.getMaxHeadersBytes());
+                        properties.getLimits().getHeadersBytes());
             }
         }
     }

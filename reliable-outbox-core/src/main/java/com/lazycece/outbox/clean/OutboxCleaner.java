@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
  * integrator should periodically invoke {@link #clean()} from its own scheduling framework (Spring
  * {@code @Scheduled}, xxl-job, ElasticJob, Quartz, etc.), for example:
  * <pre>{@code
- * @Scheduled(fixedDelayString = "${reliable-outbox.clean-interval:3600000}")
+ * @Scheduled(fixedDelay = 3_600_000)
  * public void cleanOutbox() {
  *     outboxCleaner.clean();
  * }
@@ -55,10 +55,10 @@ public class OutboxCleaner {
      * Invoked on demand by the integrator's scheduling framework.
      */
     public void clean() {
-        LocalDateTime before = LocalDateTime.now().minus(properties.getSentRetention());
-        int batchSize = properties.getCleanBatchSize();
+        LocalDateTime before = LocalDateTime.now().minus(properties.getClean().getRetention());
+        int batchSize = properties.getClean().getBatchSize();
         int total = 0;
-        for (int round = 0; round < properties.getCleanMaxBatchesPerRun(); round++) {
+        for (int round = 0; round < properties.getClean().getMaxBatchesPerRun(); round++) {
             List<Long> ids = repository.scanSentBefore(before, batchSize);
             if (ids.isEmpty()) {
                 break;
