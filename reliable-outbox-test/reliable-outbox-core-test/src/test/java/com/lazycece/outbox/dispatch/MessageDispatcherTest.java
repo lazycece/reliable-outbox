@@ -155,7 +155,7 @@ class MessageDispatcherTest {
         OutboxMessage message = seed("m1", OutboxStatus.FAILED, 15);
         doThrow(new PublishException("boom", null)).when(publisher).publish(any());
 
-        dispatcher.dispatchDue(message.getId());
+        dispatcher.dispatchById(message.getId());
 
         OutboxMessage stored = repository.get(message.getId());
         assertThat(stored.getStatus()).isEqualTo(OutboxStatus.DEAD);

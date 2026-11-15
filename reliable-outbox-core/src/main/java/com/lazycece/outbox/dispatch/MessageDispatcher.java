@@ -66,15 +66,6 @@ public class MessageDispatcher {
         dispatchAcquired(id, ownerToken);
     }
 
-    public void dispatchDue(Long id) {
-        LocalDateTime now = LocalDateTime.now();
-        String ownerToken = UUID.randomUUID().toString();
-        if (!repository.tryAcquireDue(id, ownerToken, now.plus(leaseDuration), now)) {
-            return;
-        }
-        dispatchAcquired(id, ownerToken);
-    }
-
     /**
      * The caller must already hold the lease for this message.
      */
