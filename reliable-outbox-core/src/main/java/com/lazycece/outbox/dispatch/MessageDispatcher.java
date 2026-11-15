@@ -39,7 +39,6 @@ public class MessageDispatcher {
     private final OutboxRepository repository;
     private final MessagePublisher publisher;
     private final RetryPolicy retryPolicy;
-    private final RetryTrigger retryTrigger;
     private final DeadLetterHandler deadLetterHandler;
     private final MessageListener listener;
     private final Duration leaseDuration;
@@ -47,14 +46,12 @@ public class MessageDispatcher {
     public MessageDispatcher(OutboxRepository repository,
             MessagePublisher publisher,
             RetryPolicy retryPolicy,
-            RetryTrigger retryTrigger,
             DeadLetterHandler deadLetterHandler,
             MessageListener listener,
             Duration leaseDuration) {
         this.repository = repository;
         this.publisher = publisher;
         this.retryPolicy = retryPolicy;
-        this.retryTrigger = retryTrigger;
         this.deadLetterHandler = deadLetterHandler;
         this.listener = listener;
         this.leaseDuration = leaseDuration;
@@ -67,14 +64,6 @@ public class MessageDispatcher {
             return;
         }
         dispatchAcquired(id, ownerToken);
-    }
-
-    public void retry(Long id) {
-        OutboxMessage message = repository.findById(id);
-        if (message == null || !message.getStatus().isDispatchable()) {
-            return;
-        }
-        dispatchDue(id);
     }
 
     public void dispatchDue(Long id) {
@@ -160,10 +149,6 @@ public class MessageDispatcher {
         }
 
         safeNotify(() -> listener.onFailed(message, retryCount, error));
-        long delayMillis = Math.max(0,
-                Duration.between(LocalDateTime.now(), nextRetryTime)
-                        .toMillis());
-        retryTrigger.trigger(message.getId(), delayMillis);
     }
 
     /**

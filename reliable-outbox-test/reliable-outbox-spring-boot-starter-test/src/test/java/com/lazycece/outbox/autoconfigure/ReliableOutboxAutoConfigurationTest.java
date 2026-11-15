@@ -22,8 +22,6 @@ import com.lazycece.outbox.client.MessageClient;
 import com.lazycece.outbox.clean.OutboxCleaner;
 import com.lazycece.outbox.deadletter.DeadLetterReplayer;
 import com.lazycece.outbox.dispatch.MessageDispatcher;
-import com.lazycece.outbox.dispatch.NoopRetryTrigger;
-import com.lazycece.outbox.dispatch.RetryTrigger;
 import com.lazycece.outbox.model.OutboxMessage;
 import com.lazycece.outbox.repository.OutboxRepository;
 import com.lazycece.outbox.scan.MessageScanner;
@@ -76,9 +74,6 @@ class ReliableOutboxAutoConfigurationTest {
         runner.run(context -> {
             assertThat(context).hasSingleBean(OutboxRepository.class);
             assertThat(context).hasSingleBean(TransactionExecutor.class);
-            assertThat(context).hasSingleBean(RetryTrigger.class);
-            assertThat(context.getBean(RetryTrigger.class))
-                    .isInstanceOf(NoopRetryTrigger.class);
             assertThat(context).hasSingleBean(MessageDispatcher.class);
             assertThat(context).hasSingleBean(MessageClient.class);
             assertThat(context).hasSingleBean(MessageScanner.class);

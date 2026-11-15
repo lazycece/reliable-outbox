@@ -48,7 +48,6 @@ class MessageDispatcherTest {
 
     private InMemoryOutboxRepository repository;
     private MessagePublisher publisher;
-    private RetryTrigger retryTrigger;
     private MessageListener listener;
     private DeadLetterHandler deadLetterHandler;
     private MessageDispatcher dispatcher;
@@ -57,12 +56,11 @@ class MessageDispatcherTest {
     void setUp() {
         repository = new InMemoryOutboxRepository();
         publisher = mock(MessagePublisher.class);
-        retryTrigger = mock(RetryTrigger.class);
         listener = mock(MessageListener.class);
         deadLetterHandler = mock(DeadLetterHandler.class);
         RetryPolicy retryPolicy = new RetryPolicy(16, Duration.ofSeconds(5),
                 Duration.ofSeconds(300), Duration.ZERO);
-        dispatcher = new MessageDispatcher(repository, publisher, retryPolicy, retryTrigger,
+        dispatcher = new MessageDispatcher(repository, publisher, retryPolicy,
                 deadLetterHandler, listener, Duration.ofSeconds(60));
     }
 
@@ -110,7 +108,6 @@ class MessageDispatcherTest {
         assertThat(stored.getOwnerToken()).isNull();
         assertThat(stored.getLastError()).isEqualTo("boom");
         verify(listener).onFailed(any(OutboxMessage.class), eq(0), any(PublishException.class));
-        verify(retryTrigger).trigger(eq(message.getId()), anyLong());
     }
 
     @Test
@@ -125,7 +122,6 @@ class MessageDispatcherTest {
         assertThat(stored.getRetryCount()).isEqualTo(1);
         assertThat(stored.getNextRetryTime()).isAfter(LocalDateTime.now());
         verify(listener).onFailed(any(OutboxMessage.class), eq(1), any(PublishException.class));
-        verify(retryTrigger).trigger(eq(message.getId()), anyLong());
     }
 
     @Test
@@ -152,7 +148,6 @@ class MessageDispatcherTest {
         assertThat(stored.getNextRetryTime()).isNull();
         assertThat(stored.getRetryCount()).isZero();
         verify(deadLetterHandler).onDead(any(OutboxMessage.class));
-        verify(retryTrigger, never()).trigger(anyLong(), anyLong());
     }
 
     @Test
@@ -223,7 +218,7 @@ class MessageDispatcherTest {
         doReturn(false).when(spyRepository).markSent(anyLong(), any(), any(), anyInt());
         MessageDispatcher spyDispatcher = new MessageDispatcher(spyRepository, publisher,
                 new RetryPolicy(16, Duration.ofSeconds(5), Duration.ofSeconds(300), Duration.ZERO),
-                retryTrigger, deadLetterHandler, listener, Duration.ofSeconds(60));
+                deadLetterHandler, listener, Duration.ofSeconds(60));
 
         spyDispatcher.dispatchById(message.getId());
 

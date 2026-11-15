@@ -22,9 +22,7 @@ import com.lazycece.outbox.config.ReliableOutboxProperties;
 import com.lazycece.outbox.deadletter.DeadLetterHandler;
 import com.lazycece.outbox.deadletter.DeadLetterReplayer;
 import com.lazycece.outbox.dispatch.MessageDispatcher;
-import com.lazycece.outbox.dispatch.NoopRetryTrigger;
 import com.lazycece.outbox.dispatch.RetryPolicy;
-import com.lazycece.outbox.dispatch.RetryTrigger;
 import com.lazycece.outbox.repository.JdbcOutboxRepository;
 import com.lazycece.outbox.repository.OutboxRepository;
 import com.lazycece.outbox.scan.MessageScanner;
@@ -119,18 +117,11 @@ public class ReliableOutboxAutoConfiguration {
     public MessageDispatcher messageDispatcher(OutboxRepository repository,
             MessagePublisher publisher,
             RetryPolicy retryPolicy,
-            RetryTrigger retryTrigger,
             DeadLetterHandler deadLetterHandler,
             MessageListener listener,
             ReliableOutboxProperties properties) {
-        return new MessageDispatcher(repository, publisher, retryPolicy, retryTrigger,
+        return new MessageDispatcher(repository, publisher, retryPolicy,
                 deadLetterHandler, listener, properties.getDispatch().getLeaseDuration());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public RetryTrigger retryTrigger() {
-        return new NoopRetryTrigger();
     }
 
     @Bean
