@@ -171,13 +171,15 @@ public class JdbcOutboxRepository implements OutboxRepository {
     }
 
     @Override
-    public boolean markSent(Long id, String ownerToken, LocalDateTime sentAt) {
+    public boolean markSent(Long id, String ownerToken, LocalDateTime sentAt,
+            int retryCount) {
         int rows = jdbcTemplate.update(
                 "UPDATE " + tableName
                         + " SET status = 'SENT', owner_token = NULL, owner_expire_at = NULL, "
-                        + "sent_at = ?, next_retry_time = NULL, last_error = NULL, updated_at = ? "
+                        + "sent_at = ?, retry_count = ?, next_retry_time = NULL, "
+                        + "last_error = NULL, updated_at = ? "
                         + "WHERE id = ? AND owner_token = ? AND status IN ('INIT','FAILED')",
-                sentAt, sentAt, id, ownerToken);
+                sentAt, retryCount, sentAt, id, ownerToken);
         return rows == 1;
     }
 

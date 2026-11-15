@@ -49,7 +49,11 @@ public interface OutboxRepository {
 
     boolean releaseLease(Long id, String ownerToken, LocalDateTime now);
 
-    boolean markSent(Long id, String ownerToken, LocalDateTime sentAt);
+    /**
+     * @param retryCount retries performed before this successful attempt (0 when the first
+     *                   delivery succeeds)
+     */
+    boolean markSent(Long id, String ownerToken, LocalDateTime sentAt, int retryCount);
 
     /**
      * dead=true means nextRetryTime must be null.

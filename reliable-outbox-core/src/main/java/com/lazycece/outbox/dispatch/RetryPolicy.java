@@ -20,6 +20,13 @@ import java.time.LocalDateTime;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
+ * Retry policy.
+ * <p>
+ * {@code maxRetryCount} is the number of allowed retries, <b>excluding the first delivery</b>.
+ * Every failed retry increments the number of performed retries; once the limit is reached the
+ * message moves to DEAD. A failed first delivery only schedules retry #1 and does not consume
+ * the retry budget.
+ *
  * @author lazycece
  * @date 2026/11/11
  */
@@ -38,12 +45,23 @@ public class RetryPolicy {
         this.maxJitterMillis = maxJitter.toMillis();
     }
 
-    public boolean isDead(int retryCount) {
-        return retryCount >= maxRetryCount;
+    /**
+     * @param retriesPerformed number of retries already performed (the first delivery does not
+     *                         count)
+     */
+    public boolean isDead(int retriesPerformed) {
+        return retriesPerformed >= maxRetryCount;
     }
 
-    public LocalDateTime nextRetryTime(int retryCount) {
-        int shift = Math.min(Math.max(0, retryCount - 1), 20);
+    /**
+     * Computes the time of the next retry. After the k-th retry fails, the wait is
+     * {@code min(initialInterval * 2^k, maxInterval)} (k is the number of retries performed).
+     *
+     * @param retriesPerformed number of retries already performed (the first delivery does not
+     *                         count)
+     */
+    public LocalDateTime nextRetryTime(int retriesPerformed) {
+        int shift = Math.min(Math.max(0, retriesPerformed), 20);
         long baseMillis = Math.min(initialInterval.toMillis() * (1L << shift),
                 maxInterval.toMillis());
         long jitterMillis = maxJitterMillis > 0

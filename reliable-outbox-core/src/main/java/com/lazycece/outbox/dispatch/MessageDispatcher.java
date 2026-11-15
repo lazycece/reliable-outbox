@@ -42,8 +42,7 @@ public class MessageDispatcher {
     private final RetryTrigger retryTrigger;
     private final DeadLetterHandler deadLetterHandler;
     private final MessageListener listener;
-    private final Duration ownerLease;
-    private final Duration publishTimeout;
+    private final Duration leaseDuration;
 
     public MessageDispatcher(OutboxRepository repository,
             MessagePublisher publisher,
@@ -51,22 +50,20 @@ public class MessageDispatcher {
             RetryTrigger retryTrigger,
             DeadLetterHandler deadLetterHandler,
             MessageListener listener,
-            Duration ownerLease,
-            Duration publishTimeout) {
+            Duration leaseDuration) {
         this.repository = repository;
         this.publisher = publisher;
         this.retryPolicy = retryPolicy;
         this.retryTrigger = retryTrigger;
         this.deadLetterHandler = deadLetterHandler;
         this.listener = listener;
-        this.ownerLease = ownerLease;
-        this.publishTimeout = publishTimeout;
+        this.leaseDuration = leaseDuration;
     }
 
     public void dispatchById(Long id) {
         LocalDateTime now = LocalDateTime.now();
         String ownerToken = UUID.randomUUID().toString();
-        if (!repository.tryAcquire(id, ownerToken, now.plus(ownerLease), now)) {
+        if (!repository.tryAcquire(id, ownerToken, now.plus(leaseDuration), now)) {
             return;
         }
         dispatchAcquired(id, ownerToken);
@@ -83,7 +80,7 @@ public class MessageDispatcher {
     public void dispatchDue(Long id) {
         LocalDateTime now = LocalDateTime.now();
         String ownerToken = UUID.randomUUID().toString();
-        if (!repository.tryAcquireDue(id, ownerToken, now.plus(ownerLease), now)) {
+        if (!repository.tryAcquireDue(id, ownerToken, now.plus(leaseDuration), now)) {
             return;
         }
         dispatchAcquired(id, ownerToken);
@@ -108,9 +105,8 @@ public class MessageDispatcher {
             safeNotify(() -> listener.onLeaseLost(fresh, "lease-lost-before-publish"));
             return;
         }
-        if (fresh.getOwnerExpireAt() == null
-                || !fresh.getOwnerExpireAt().isAfter(now.plus(publishTimeout))) {
-            log.warn("lease insufficient before publish, release, id={}, msgId={}",
+        if (fresh.getOwnerExpireAt() == null || !fresh.getOwnerExpireAt().isAfter(now)) {
+            log.warn("lease expired before publish, release, id={}, msgId={}",
                     id, fresh.getMsgId());
             repository.releaseLease(id, ownerToken, now);
             return;
@@ -118,7 +114,8 @@ public class MessageDispatcher {
         try {
             publisher.publish(fresh);
             LocalDateTime sentAt = LocalDateTime.now();
-            if (!repository.markSent(id, ownerToken, sentAt)) {
+            int retriesPerformed = fresh.getRetryCount() + (isRetryAttempt(fresh) ? 1 : 0);
+            if (!repository.markSent(id, ownerToken, sentAt, retriesPerformed)) {
                 log.warn(
                         "markSent failed, lease may be lost, duplicate delivery possible, msgId={}",
                         fresh.getMsgId());
@@ -127,6 +124,7 @@ public class MessageDispatcher {
             }
             fresh.setStatus(OutboxStatus.SENT);
             fresh.setSentAt(sentAt);
+            fresh.setRetryCount(retriesPerformed);
             safeNotify(() -> listener.onSent(fresh));
         } catch (NonRetryablePublishException ex) {
             fail(fresh, ownerToken, ex, true);
@@ -137,7 +135,8 @@ public class MessageDispatcher {
 
     private void fail(OutboxMessage message, String ownerToken, Exception error,
             boolean permanent) {
-        int retryCount = message.getRetryCount() + 1;
+        // retry_count 只统计已执行的重试次数：首次投递失败后仍为 0，只安排第 1 次重试。
+        int retryCount = isRetryAttempt(message) ? message.getRetryCount() + 1 : 0;
         boolean dead = permanent || retryPolicy.isDead(retryCount);
         LocalDateTime nextRetryTime = dead ? null : retryPolicy.nextRetryTime(retryCount);
         String errorMessage = truncate(error.getMessage());
@@ -165,6 +164,14 @@ public class MessageDispatcher {
                 Duration.between(LocalDateTime.now(), nextRetryTime)
                         .toMillis());
         retryTrigger.trigger(message.getId(), delayMillis);
+    }
+
+    /**
+     * A message is a retry attempt when it already failed at least once (status FAILED).
+     * Fresh and replayed messages are INIT and start a full retry budget.
+     */
+    private static boolean isRetryAttempt(OutboxMessage message) {
+        return message.getStatus() == OutboxStatus.FAILED;
     }
 
     private void safeNotify(Runnable action) {
