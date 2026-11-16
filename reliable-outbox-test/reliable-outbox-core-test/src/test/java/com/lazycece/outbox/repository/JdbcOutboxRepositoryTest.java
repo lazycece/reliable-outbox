@@ -72,7 +72,7 @@ class JdbcOutboxRepositoryTest {
         message.setPartitionKey("order-1");
         message.setPayload("{\"id\":1}");
         message.setHeaders("{}");
-        message.setStatus(OutboxStatus.INIT);
+        message.setStatus(OutboxStatus.PENDING);
         message.setRetryCount(0);
         message.setNextRetryTime(now.plusSeconds(30));
         message.setCreatedAt(now);
@@ -176,7 +176,7 @@ class JdbcOutboxRepositoryTest {
 
         assertThat(repository.markFailed(first.getId(), "owner", "boom", next, 1, false, now)).isTrue();
         OutboxMessage failed = repository.findById(first.getId());
-        assertThat(failed.getStatus()).isEqualTo(OutboxStatus.FAILED);
+        assertThat(failed.getStatus()).isEqualTo(OutboxStatus.PENDING);
         assertThat(failed.getRetryCount()).isEqualTo(1);
         assertWithinOneMilli(failed.getNextRetryTime(), next);
         assertThat(failed.getLastError()).isEqualTo("boom");
@@ -195,13 +195,13 @@ class JdbcOutboxRepositoryTest {
     void resetForReplayOnlyResetsDeadMessages() {
         OutboxMessage message = message("m1");
         repository.insert(message);
-        jdbcTemplate.update("UPDATE t_outbox SET status = 'DEAD', retry_count = 16 WHERE id = ?",
+        jdbcTemplate.update("UPDATE t_outbox SET status = 2, retry_count = 16 WHERE id = ?",
                 message.getId());
 
         LocalDateTime now = LocalDateTime.now();
         assertThat(repository.resetForReplay("m1", now, now)).isTrue();
         OutboxMessage reset = repository.findById(message.getId());
-        assertThat(reset.getStatus()).isEqualTo(OutboxStatus.INIT);
+        assertThat(reset.getStatus()).isEqualTo(OutboxStatus.PENDING);
         assertThat(reset.getRetryCount()).isZero();
         assertWithinOneMilli(reset.getNextRetryTime(), now);
         assertThat(repository.resetForReplay("m1", now, now)).isFalse();
@@ -241,13 +241,13 @@ class JdbcOutboxRepositoryTest {
         repository.insert(dead);
 
         LocalDateTime oldSentAt = now.minusSeconds(8 * 24 * 3600L);
-        jdbcTemplate.update("UPDATE t_outbox SET status = 'SENT', sent_at = ? WHERE id = ?",
+        jdbcTemplate.update("UPDATE t_outbox SET status = 1, sent_at = ? WHERE id = ?",
                 oldSentAt, old1.getId());
-        jdbcTemplate.update("UPDATE t_outbox SET status = 'SENT', sent_at = ? WHERE id = ?",
+        jdbcTemplate.update("UPDATE t_outbox SET status = 1, sent_at = ? WHERE id = ?",
                 oldSentAt.plusNanos(1_000_000), old2.getId());
-        jdbcTemplate.update("UPDATE t_outbox SET status = 'SENT', sent_at = ? WHERE id = ?",
+        jdbcTemplate.update("UPDATE t_outbox SET status = 1, sent_at = ? WHERE id = ?",
                 now, recent.getId());
-        jdbcTemplate.update("UPDATE t_outbox SET status = 'DEAD', sent_at = ? WHERE id = ?",
+        jdbcTemplate.update("UPDATE t_outbox SET status = 2, sent_at = ? WHERE id = ?",
                 oldSentAt, dead.getId());
 
         List<Long> candidates = repository.scanSentBefore(now.minusSeconds(24 * 3600L), 10);

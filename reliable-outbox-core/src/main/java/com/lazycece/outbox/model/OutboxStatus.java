@@ -20,9 +20,28 @@ package com.lazycece.outbox.model;
  * @date 2026/11/11
  */
 public enum OutboxStatus {
-    INIT, FAILED, SENT, DEAD;
+    PENDING(0), SENT(1), DEAD(2);
+
+    private final int code;
+
+    OutboxStatus(int code) {
+        this.code = code;
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public static OutboxStatus fromCode(int code) {
+        for (OutboxStatus status : values()) {
+            if (status.code == code) {
+                return status;
+            }
+        }
+        throw new IllegalArgumentException("Unknown outbox status code: " + code);
+    }
 
     public boolean isDispatchable() {
-        return this == INIT || this == FAILED;
+        return this == PENDING;
     }
 }

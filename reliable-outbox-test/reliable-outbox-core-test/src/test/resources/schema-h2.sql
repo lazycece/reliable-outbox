@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS t_outbox (
     partition_key VARCHAR(255) DEFAULT NULL,
     payload CLOB NOT NULL,
     headers VARCHAR(1024) DEFAULT NULL,
-    status VARCHAR(16) NOT NULL DEFAULT 'INIT',
+    status TINYINT NOT NULL DEFAULT 0,
     retry_count INT NOT NULL DEFAULT 0,
     next_retry_time TIMESTAMP(3) DEFAULT NULL,
     owner_token VARCHAR(64) DEFAULT NULL,

@@ -67,7 +67,7 @@ class DeadLetterReplayerTest {
         assertThat(replayer.replay("m1")).isTrue();
 
         OutboxMessage reset = repository.get(message.getId());
-        assertThat(reset.getStatus()).isEqualTo(OutboxStatus.INIT);
+        assertThat(reset.getStatus()).isEqualTo(OutboxStatus.PENDING);
         assertThat(reset.getRetryCount()).isZero();
         assertThat(reset.getNextRetryTime()).isNotNull();
         verify(dispatcher).dispatchById(message.getId());

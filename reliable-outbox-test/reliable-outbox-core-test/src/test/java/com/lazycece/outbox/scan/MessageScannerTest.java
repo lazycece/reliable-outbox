@@ -71,7 +71,7 @@ class MessageScannerTest {
         message.setBizCode("order");
         message.setTopic("order-events");
         message.setPayload("{}");
-        message.setStatus(OutboxStatus.INIT);
+        message.setStatus(OutboxStatus.PENDING);
         message.setNextRetryTime(nextRetry);
         message.setCreatedAt(now);
         message.setUpdatedAt(now);

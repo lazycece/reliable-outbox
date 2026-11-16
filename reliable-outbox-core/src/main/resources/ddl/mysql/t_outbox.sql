@@ -6,7 +6,7 @@ CREATE TABLE  `t_outbox` (
   `partition_key` VARCHAR(255) DEFAULT NULL COMMENT '分区键，用于 Broker 分区选择与消费分组',
   `payload` TEXT NOT NULL COMMENT '消息体，默认上限 65535 字节',
   `headers` VARCHAR(1024) DEFAULT NULL COMMENT '透传元数据',
-  `status` VARCHAR(16) NOT NULL DEFAULT 'INIT' COMMENT '消息状态：INIT 待发送、FAILED 待重试、SENT 已发送、DEAD 死信',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '消息状态：0 待发送、1 已发送、2 死信',
   `retry_count` INT NOT NULL DEFAULT 0 COMMENT '已重试次数',
   `next_retry_time` DATETIME(3) DEFAULT NULL COMMENT '下次重试时间，扫描器据此判断消息是否到期',
   `owner_token` VARCHAR(64) DEFAULT NULL COMMENT '当前投递租约的持有者标识，用于防止并发重复投递',

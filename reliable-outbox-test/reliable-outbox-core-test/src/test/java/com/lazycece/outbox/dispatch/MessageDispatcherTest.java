@@ -64,17 +64,19 @@ class MessageDispatcherTest {
                 deadLetterHandler, listener, Duration.ofSeconds(60));
     }
 
-    private OutboxMessage seed(String msgId, OutboxStatus status, int retryCount) {
+    private OutboxMessage seed(String msgId, int retryCount, boolean retryAttempt) {
         LocalDateTime now = LocalDateTime.now();
         OutboxMessage message = new OutboxMessage();
         message.setMsgId(msgId);
         message.setBizCode("order");
         message.setTopic("order-events");
         message.setPayload("{}");
-        message.setStatus(status);
+        message.setStatus(OutboxStatus.PENDING);
         message.setRetryCount(retryCount);
-        message.setNextRetryTime(status == OutboxStatus.FAILED
-                ? now.minusSeconds(1) : now.plusSeconds(30));
+        message.setNextRetryTime(now.plusSeconds(30));
+        if (retryAttempt) {
+            message.setLastError("previous failure");
+        }
         message.setCreatedAt(now);
         message.setUpdatedAt(now);
         return repository.put(message);
@@ -82,7 +84,7 @@ class MessageDispatcherTest {
 
     @Test
     void successfulPublishMarksSentAndNotifies() {
-        OutboxMessage message = seed("m1", OutboxStatus.INIT, 0);
+        OutboxMessage message = seed("m1", 0, false);
 
         dispatcher.dispatchById(message.getId());
 
@@ -95,13 +97,13 @@ class MessageDispatcherTest {
 
     @Test
     void retryableFailureSchedulesRetry() {
-        OutboxMessage message = seed("m1", OutboxStatus.INIT, 0);
+        OutboxMessage message = seed("m1", 0, false);
         doThrow(new PublishException("boom", null)).when(publisher).publish(any());
 
         dispatcher.dispatchById(message.getId());
 
         OutboxMessage stored = repository.get(message.getId());
-        assertThat(stored.getStatus()).isEqualTo(OutboxStatus.FAILED);
+        assertThat(stored.getStatus()).isEqualTo(OutboxStatus.PENDING);
         // The first delivery is not a retry: retry_count stays 0 and only the 1st retry is scheduled.
         assertThat(stored.getRetryCount()).isZero();
         assertThat(stored.getNextRetryTime()).isAfter(LocalDateTime.now());
@@ -112,13 +114,13 @@ class MessageDispatcherTest {
 
     @Test
     void retryFailureIncrementsRetryCount() {
-        OutboxMessage message = seed("m1", OutboxStatus.FAILED, 0);
+        OutboxMessage message = seed("m1", 0, true);
         doThrow(new PublishException("boom", null)).when(publisher).publish(any());
 
         dispatcher.dispatchById(message.getId());
 
         OutboxMessage stored = repository.get(message.getId());
-        assertThat(stored.getStatus()).isEqualTo(OutboxStatus.FAILED);
+        assertThat(stored.getStatus()).isEqualTo(OutboxStatus.PENDING);
         assertThat(stored.getRetryCount()).isEqualTo(1);
         assertThat(stored.getNextRetryTime()).isAfter(LocalDateTime.now());
         verify(listener).onFailed(any(OutboxMessage.class), eq(1), any(PublishException.class));
@@ -126,7 +128,7 @@ class MessageDispatcherTest {
 
     @Test
     void successfulRetryPersistsRetryCount() {
-        OutboxMessage message = seed("m1", OutboxStatus.FAILED, 1);
+        OutboxMessage message = seed("m1", 1, true);
 
         dispatcher.dispatchById(message.getId());
 
@@ -138,7 +140,7 @@ class MessageDispatcherTest {
 
     @Test
     void nonRetryableFailureMarksDead() {
-        OutboxMessage message = seed("m1", OutboxStatus.INIT, 0);
+        OutboxMessage message = seed("m1", 0, false);
         doThrow(new NonRetryablePublishException("bad topic", null)).when(publisher).publish(any());
 
         dispatcher.dispatchById(message.getId());
@@ -152,7 +154,7 @@ class MessageDispatcherTest {
 
     @Test
     void failureAtMaxRetryCountMarksDead() {
-        OutboxMessage message = seed("m1", OutboxStatus.FAILED, 15);
+        OutboxMessage message = seed("m1", 15, true);
         doThrow(new PublishException("boom", null)).when(publisher).publish(any());
 
         dispatcher.dispatchById(message.getId());
@@ -165,7 +167,7 @@ class MessageDispatcherTest {
 
     @Test
     void expiredLeaseIsReleasedWithoutPublishing() {
-        OutboxMessage message = seed("m1", OutboxStatus.INIT, 0);
+        OutboxMessage message = seed("m1", 0, false);
         LocalDateTime now = LocalDateTime.now();
         repository.tryAcquire(message.getId(), "t", now.minusSeconds(1), now);
 
@@ -177,7 +179,7 @@ class MessageDispatcherTest {
 
     @Test
     void stillValidLeaseIsPublishedEvenWithLittleTimeLeft() {
-        OutboxMessage message = seed("m1", OutboxStatus.INIT, 0);
+        OutboxMessage message = seed("m1", 0, false);
         LocalDateTime now = LocalDateTime.now();
         repository.tryAcquire(message.getId(), "t", now.plusSeconds(1), now);
 
@@ -189,7 +191,7 @@ class MessageDispatcherTest {
 
     @Test
     void staleOwnerIsSkippedAndReported() {
-        OutboxMessage message = seed("m1", OutboxStatus.INIT, 0);
+        OutboxMessage message = seed("m1", 0, false);
         LocalDateTime now = LocalDateTime.now();
         repository.tryAcquire(message.getId(), "owner", now.plusSeconds(60), now);
 
@@ -221,7 +223,7 @@ class MessageDispatcherTest {
         message.setBizCode("order");
         message.setTopic("order-events");
         message.setPayload("{}");
-        message.setStatus(OutboxStatus.INIT);
+        message.setStatus(OutboxStatus.PENDING);
         message.setNextRetryTime(now.plusSeconds(30));
         message.setCreatedAt(now);
         message.setUpdatedAt(now);

@@ -80,7 +80,7 @@ class DefaultMessageClientTest {
 
         assertThat(msgId).isEqualTo(message.getMsgId()).hasSize(32);
         assertThat(transactionExecutor.usedExistingTransaction).isTrue();
-        assertThat(message.getStatus()).isEqualTo(OutboxStatus.INIT);
+        assertThat(message.getStatus()).isEqualTo(OutboxStatus.PENDING);
         assertThat(message.getRetryCount()).isZero();
         assertThat(message.getCreatedAt()).isNotNull();
         assertThat(message.getNextRetryTime())

@@ -52,7 +52,7 @@ public class OutboxMessage {
      */
     private String headers;
     /**
-     * Message status: INIT / FAILED / SENT / DEAD.
+     * Message status: PENDING / SENT / DEAD.
      */
     private OutboxStatus status;
     /**

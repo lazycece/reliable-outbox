@@ -16,6 +16,7 @@
 package com.lazycece.outbox.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
@@ -26,10 +27,21 @@ import org.junit.jupiter.api.Test;
 class OutboxStatusTest {
 
     @Test
-    void onlyInitAndFailedAreDispatchable() {
-        assertThat(OutboxStatus.INIT.isDispatchable()).isTrue();
-        assertThat(OutboxStatus.FAILED.isDispatchable()).isTrue();
+    void onlyPendingIsDispatchable() {
+        assertThat(OutboxStatus.PENDING.isDispatchable()).isTrue();
         assertThat(OutboxStatus.SENT.isDispatchable()).isFalse();
         assertThat(OutboxStatus.DEAD.isDispatchable()).isFalse();
+    }
+
+    @Test
+    void codesAreStableAndRoundTrip() {
+        assertThat(OutboxStatus.PENDING.getCode()).isZero();
+        assertThat(OutboxStatus.SENT.getCode()).isEqualTo(1);
+        assertThat(OutboxStatus.DEAD.getCode()).isEqualTo(2);
+        assertThat(OutboxStatus.fromCode(0)).isEqualTo(OutboxStatus.PENDING);
+        assertThat(OutboxStatus.fromCode(1)).isEqualTo(OutboxStatus.SENT);
+        assertThat(OutboxStatus.fromCode(2)).isEqualTo(OutboxStatus.DEAD);
+        assertThatThrownBy(() -> OutboxStatus.fromCode(99))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

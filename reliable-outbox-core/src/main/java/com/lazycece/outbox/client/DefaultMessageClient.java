@@ -97,7 +97,7 @@ public class DefaultMessageClient implements MessageClient {
         if (message.getMsgId() == null) {
             message.setMsgId(UUID.randomUUID().toString().replace("-", ""));
         }
-        message.setStatus(OutboxStatus.INIT);
+        message.setStatus(OutboxStatus.PENDING);
         message.setRetryCount(0);
         message.setCreatedAt(now);
         message.setUpdatedAt(now);

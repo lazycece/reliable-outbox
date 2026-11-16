@@ -44,6 +44,10 @@ public class JdbcOutboxRepository implements OutboxRepository {
             next_retry_time, owner_token, owner_expire_at, sent_at, last_error, created_at, \
             updated_at""";
 
+    private static final int STATUS_PENDING = OutboxStatus.PENDING.getCode();
+    private static final int STATUS_SENT = OutboxStatus.SENT.getCode();
+    private static final int STATUS_DEAD = OutboxStatus.DEAD.getCode();
+
     private final JdbcTemplate jdbcTemplate;
     private final String tableName;
 
@@ -72,7 +76,7 @@ public class JdbcOutboxRepository implements OutboxRepository {
             PreparedStatement ps = connection.prepareStatement(
                     "INSERT INTO " + tableName + " (msg_id, biz_code, topic, partition_key, "
                             + "payload, headers, status, retry_count, next_retry_time, created_at, updated_at) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, 'INIT', 0, ?, ?, ?)",
+                            + "VALUES (?, ?, ?, ?, ?, ?, " + STATUS_PENDING + ", 0, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, message.getMsgId());
             ps.setString(2, message.getBizCode());
@@ -119,7 +123,7 @@ public class JdbcOutboxRepository implements OutboxRepository {
             message.setPartitionKey(rs.getString("partition_key"));
             message.setPayload(rs.getString("payload"));
             message.setHeaders(rs.getString("headers"));
-            message.setStatus(OutboxStatus.valueOf(rs.getString("status")));
+            message.setStatus(OutboxStatus.fromCode(rs.getInt("status")));
             message.setRetryCount(rs.getInt("retry_count"));
             message.setNextRetryTime(readTime(rs, "next_retry_time"));
             message.setOwnerToken(rs.getString("owner_token"));
@@ -141,7 +145,7 @@ public class JdbcOutboxRepository implements OutboxRepository {
             LocalDateTime now) {
         int rows = jdbcTemplate.update(
                 "UPDATE " + tableName + " SET owner_token = ?, owner_expire_at = ?, updated_at = ? "
-                        + "WHERE id = ? AND status IN ('INIT', 'FAILED') "
+                        + "WHERE id = ? AND status = " + STATUS_PENDING + " "
                         + "AND (owner_token IS NULL OR owner_expire_at < ?)",
                 ownerToken, ownerExpireAt, now, id, now);
         return rows == 1;
@@ -152,7 +156,7 @@ public class JdbcOutboxRepository implements OutboxRepository {
             LocalDateTime dueAt) {
         int rows = jdbcTemplate.update(
                 "UPDATE " + tableName + " SET owner_token = ?, owner_expire_at = ?, updated_at = ? "
-                        + "WHERE id = ? AND status IN ('INIT', 'FAILED') "
+                        + "WHERE id = ? AND status = " + STATUS_PENDING + " "
                         + "AND next_retry_time IS NOT NULL AND next_retry_time <= ? "
                         + "AND (owner_token IS NULL OR owner_expire_at < ?)",
                 ownerToken, ownerExpireAt, dueAt, id, dueAt, dueAt);
@@ -174,10 +178,11 @@ public class JdbcOutboxRepository implements OutboxRepository {
             int retryCount) {
         int rows = jdbcTemplate.update(
                 "UPDATE " + tableName
-                        + " SET status = 'SENT', owner_token = NULL, owner_expire_at = NULL, "
+                        + " SET status = " + STATUS_SENT
+                        + ", owner_token = NULL, owner_expire_at = NULL, "
                         + "sent_at = ?, retry_count = ?, next_retry_time = NULL, "
                         + "last_error = NULL, updated_at = ? "
-                        + "WHERE id = ? AND owner_token = ? AND status IN ('INIT','FAILED')",
+                        + "WHERE id = ? AND owner_token = ? AND status = " + STATUS_PENDING,
                 sentAt, retryCount, sentAt, id, ownerToken);
         return rows == 1;
     }
@@ -189,17 +194,19 @@ public class JdbcOutboxRepository implements OutboxRepository {
         if (dead) {
             int rows = jdbcTemplate.update(
                     "UPDATE " + tableName
-                            + " SET status = 'DEAD', owner_token = NULL, owner_expire_at = NULL, "
+                            + " SET status = " + STATUS_DEAD
+                            + ", owner_token = NULL, owner_expire_at = NULL, "
                             + "retry_count = ?, next_retry_time = NULL, last_error = ?, updated_at = ? "
-                            + "WHERE id = ? AND owner_token = ? AND status IN ('INIT','FAILED')",
+                            + "WHERE id = ? AND owner_token = ? AND status = " + STATUS_PENDING,
                     retryCount, error, now, id, ownerToken);
             return rows == 1;
         }
         int rows = jdbcTemplate.update(
                 "UPDATE " + tableName
-                        + " SET status = 'FAILED', owner_token = NULL, owner_expire_at = NULL, "
+                        + " SET status = " + STATUS_PENDING
+                        + ", owner_token = NULL, owner_expire_at = NULL, "
                         + "retry_count = ?, next_retry_time = ?, last_error = ?, updated_at = ? "
-                        + "WHERE id = ? AND owner_token = ? AND status IN ('INIT','FAILED')",
+                        + "WHERE id = ? AND owner_token = ? AND status = " + STATUS_PENDING,
                 retryCount, nextRetryTime, error, now, id, ownerToken);
         return rows == 1;
     }
@@ -207,10 +214,11 @@ public class JdbcOutboxRepository implements OutboxRepository {
     @Override
     public boolean resetForReplay(String msgId, LocalDateTime nextRetryTime, LocalDateTime now) {
         int rows = jdbcTemplate.update(
-                "UPDATE " + tableName + " SET status = 'INIT', retry_count = 0, "
+                "UPDATE " + tableName + " SET status = " + STATUS_PENDING
+                        + ", retry_count = 0, "
                         + "next_retry_time = ?, "
                         + "owner_token = NULL, owner_expire_at = NULL, last_error = NULL, updated_at = ? "
-                        + "WHERE msg_id = ? AND status = 'DEAD'",
+                        + "WHERE msg_id = ? AND status = " + STATUS_DEAD,
                 nextRetryTime, now, msgId);
         return rows == 1;
     }
@@ -219,7 +227,7 @@ public class JdbcOutboxRepository implements OutboxRepository {
     public List<Long> scanDispatchableIds(int limit, LocalDateTime now) {
         return jdbcTemplate.queryForList(
                 "SELECT id FROM " + tableName + " "
-                        + "WHERE status IN ('INIT', 'FAILED') "
+                        + "WHERE status = " + STATUS_PENDING + " "
                         + "AND next_retry_time IS NOT NULL "
                         + "AND next_retry_time <= ? "
                         + "AND (owner_token IS NULL OR owner_expire_at < ?) "
@@ -230,7 +238,8 @@ public class JdbcOutboxRepository implements OutboxRepository {
     @Override
     public List<Long> scanSentBefore(LocalDateTime before, int limit) {
         return jdbcTemplate.queryForList(
-                "SELECT id FROM " + tableName + " WHERE status = 'SENT' AND sent_at < ? "
+                "SELECT id FROM " + tableName + " WHERE status = " + STATUS_SENT
+                        + " AND sent_at < ? "
                         + "ORDER BY sent_at LIMIT ?",
                 Long.class, before, limit);
     }
@@ -242,7 +251,8 @@ public class JdbcOutboxRepository implements OutboxRepository {
         }
         String inSql = String.join(",", Collections.nCopies(ids.size(), "?"));
         return jdbcTemplate.update(
-                "DELETE FROM " + tableName + " WHERE id IN (" + inSql + ") AND status = 'SENT'",
+                "DELETE FROM " + tableName + " WHERE id IN (" + inSql + ") AND status = "
+                        + STATUS_SENT,
                 ids.toArray());
     }
 }

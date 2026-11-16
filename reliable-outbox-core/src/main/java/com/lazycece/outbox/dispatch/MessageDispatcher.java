@@ -111,11 +111,15 @@ public class MessageDispatcher {
 
     private void fail(OutboxMessage message, String ownerToken, Exception error,
             boolean permanent) {
-        // retry_count 只统计已执行的重试次数：首次投递失败后仍为 0，只安排第 1 次重试。
         int retryCount = isRetryAttempt(message) ? message.getRetryCount() + 1 : 0;
         boolean dead = permanent || retryPolicy.isDead(retryCount);
         LocalDateTime nextRetryTime = dead ? null : retryPolicy.nextRetryTime(retryCount);
+        // A retry attempt is identified by a non-null last_error, so the first failure must
+        // always persist something even when the exception has no message.
         String errorMessage = truncate(error.getMessage());
+        if (errorMessage == null) {
+            errorMessage = error.getClass().getName();
+        }
 
         boolean updated = repository.markFailed(message.getId(), ownerToken,
                 errorMessage, nextRetryTime, retryCount, dead,
@@ -127,7 +131,7 @@ public class MessageDispatcher {
 
         message.setRetryCount(retryCount);
         message.setLastError(errorMessage);
-        message.setStatus(dead ? OutboxStatus.DEAD : OutboxStatus.FAILED);
+        message.setStatus(dead ? OutboxStatus.DEAD : OutboxStatus.PENDING);
         message.setNextRetryTime(nextRetryTime);
 
         if (dead) {
@@ -139,11 +143,11 @@ public class MessageDispatcher {
     }
 
     /**
-     * A message is a retry attempt when it already failed at least once (status FAILED).
-     * Fresh and replayed messages are INIT and start a full retry budget.
+     * A message is a retry attempt when it already failed at least once. Fresh and replayed
+     * messages have a null last_error and start a full retry budget.
      */
     private static boolean isRetryAttempt(OutboxMessage message) {
-        return message.getStatus() == OutboxStatus.FAILED;
+        return message.getLastError() != null;
     }
 
     private void safeNotify(Runnable action) {

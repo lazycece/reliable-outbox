@@ -143,7 +143,7 @@ class ReliableOutboxAutoConfigurationTest {
             await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
                 Map<String, Object> row = jdbcTemplate.queryForMap(
                         "SELECT status, sent_at FROM t_outbox WHERE msg_id = ?", message.getMsgId());
-                assertThat(row.get("status")).isEqualTo("SENT");
+                assertThat(((Number) row.get("status")).intValue()).isEqualTo(1);
                 assertThat(row.get("sent_at")).isNotNull();
             });
         });
@@ -160,7 +160,7 @@ class ReliableOutboxAutoConfigurationTest {
                     partition_key VARCHAR(255) DEFAULT NULL,
                     payload CLOB NOT NULL,
                     headers VARCHAR(1024) DEFAULT NULL,
-                    status VARCHAR(16) NOT NULL DEFAULT 'INIT',
+                    status TINYINT NOT NULL DEFAULT 0,
                     retry_count INT NOT NULL DEFAULT 0,
                     next_retry_time TIMESTAMP(3) DEFAULT NULL,
                     owner_token VARCHAR(64) DEFAULT NULL,

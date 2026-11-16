@@ -160,7 +160,7 @@ public class InMemoryOutboxRepository implements OutboxRepository {
         }
         message.setStatus(dead
                 ? com.lazycece.outbox.model.OutboxStatus.DEAD
-                : com.lazycece.outbox.model.OutboxStatus.FAILED);
+                : com.lazycece.outbox.model.OutboxStatus.PENDING);
         message.setOwnerToken(null);
         message.setOwnerExpireAt(null);
         message.setRetryCount(retryCount);
@@ -176,7 +176,7 @@ public class InMemoryOutboxRepository implements OutboxRepository {
         if (message == null || message.getStatus() != com.lazycece.outbox.model.OutboxStatus.DEAD) {
             return false;
         }
-        message.setStatus(com.lazycece.outbox.model.OutboxStatus.INIT);
+        message.setStatus(com.lazycece.outbox.model.OutboxStatus.PENDING);
         message.setRetryCount(0);
         message.setNextRetryTime(nextRetryTime);
         message.setOwnerToken(null);
