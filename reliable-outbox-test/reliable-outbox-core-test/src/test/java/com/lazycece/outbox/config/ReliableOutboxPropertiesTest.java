@@ -46,7 +46,7 @@ class ReliableOutboxPropertiesTest {
         assertThat(p.getClean().getBatchSize()).isEqualTo(1000);
         assertThat(p.getClean().getMaxBatchesPerRun()).isEqualTo(10);
         assertThat(p.getLimits().getPayloadBytes()).isEqualTo(65535);
-        assertThat(p.getLimits().getHeadersBytes()).isEqualTo(4096);
+        assertThat(p.getLimits().getHeadersBytes()).isEqualTo(1024);
         p.validate();
     }
 
@@ -149,9 +149,9 @@ class ReliableOutboxPropertiesTest {
     }
 
     @Test
-    void headersLimitMustFitTextColumn() {
+    void headersLimitMustFitVarcharColumn() {
         ReliableOutboxProperties p = new ReliableOutboxProperties();
-        p.getLimits().setHeadersBytes(65536);
+        p.getLimits().setHeadersBytes(1025);
         assertThatThrownBy(p::validate)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("limits.headers-bytes");

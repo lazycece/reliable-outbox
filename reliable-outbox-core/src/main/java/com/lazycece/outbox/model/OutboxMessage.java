@@ -48,7 +48,7 @@ public class OutboxMessage {
      */
     private String payload;
     /**
-     * Passthrough metadata forwarded to the MQ as-is, capped at 4096 bytes.
+     * Passthrough metadata forwarded to the MQ as-is
      */
     private String headers;
     /**

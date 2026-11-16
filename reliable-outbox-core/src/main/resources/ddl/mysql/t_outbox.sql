@@ -5,7 +5,7 @@ CREATE TABLE  `t_outbox` (
   `topic` VARCHAR(255) NOT NULL COMMENT '消息主题',
   `partition_key` VARCHAR(255) DEFAULT NULL COMMENT '分区键，用于 Broker 分区选择与消费分组',
   `payload` TEXT NOT NULL COMMENT '消息体，默认上限 65535 字节',
-  `headers` TEXT DEFAULT NULL COMMENT '透传元数据，默认上限 4096 字节',
+  `headers` VARCHAR(1024) DEFAULT NULL COMMENT '透传元数据',
   `status` VARCHAR(16) NOT NULL DEFAULT 'INIT' COMMENT '消息状态：INIT 待发送、FAILED 待重试、SENT 已发送、DEAD 死信',
   `retry_count` INT NOT NULL DEFAULT 0 COMMENT '已重试次数',
   `next_retry_time` DATETIME(3) DEFAULT NULL COMMENT '下次重试时间，扫描器据此判断消息是否到期',

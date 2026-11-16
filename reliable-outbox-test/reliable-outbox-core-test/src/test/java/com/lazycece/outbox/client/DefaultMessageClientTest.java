@@ -135,12 +135,12 @@ class DefaultMessageClientTest {
     @Test
     void headersAtLimitAreAcceptedAndOverLimitRejected() {
         OutboxMessage ok = message();
-        ok.setHeaders("h".repeat(4096));
+        ok.setHeaders("h".repeat(1024));
         client.sendInTransaction(ok);
         verify(repository).insert(ok);
 
         OutboxMessage tooLarge = message();
-        tooLarge.setHeaders("h".repeat(4097));
+        tooLarge.setHeaders("h".repeat(1025));
         assertThatThrownBy(() -> client.sendInTransaction(tooLarge))
                 .isInstanceOf(MessageTooLargeException.class)
                 .hasMessageContaining("headers");

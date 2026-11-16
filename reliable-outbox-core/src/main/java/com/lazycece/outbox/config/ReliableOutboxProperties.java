@@ -413,7 +413,7 @@ public class ReliableOutboxProperties {
     }
 
     /**
-     * Persisted field size limits, aligned with the TEXT column limit by default.
+     * Persisted field size limits, aligned with the column limits by default.
      */
     public static class Limits {
 
@@ -423,9 +423,9 @@ public class ReliableOutboxProperties {
         private int payloadBytes = 64 * 1024 - 1;
 
         /**
-         * Maximum headers size in bytes; limited to 65,535 bytes by the TEXT column by default.
+         * Maximum headers size in bytes; limited to 1,024 bytes by the VARCHAR(1024) column.
          */
-        private int headersBytes = 4 * 1024;
+        private int headersBytes = 1024;
 
         void validate() {
             if (payloadBytes <= 0 || payloadBytes > 65535) {
@@ -434,10 +434,10 @@ public class ReliableOutboxProperties {
                                 + "(TEXT limit); modify the payload column type and remove "
                                 + "this check to allow larger messages");
             }
-            if (headersBytes <= 0 || headersBytes > 65535) {
+            if (headersBytes <= 0 || headersBytes > 1024) {
                 throw new IllegalStateException(
-                        "reliable-outbox.limits.headers-bytes must be between 1 and 65535 "
-                                + "(TEXT limit)");
+                        "reliable-outbox.limits.headers-bytes must be between 1 and 1024 "
+                                + "(VARCHAR(1024) limit)");
             }
         }
 

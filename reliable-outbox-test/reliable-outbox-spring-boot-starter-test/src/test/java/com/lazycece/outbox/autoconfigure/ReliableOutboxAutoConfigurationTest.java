@@ -159,7 +159,7 @@ class ReliableOutboxAutoConfigurationTest {
                     topic VARCHAR(255) NOT NULL,
                     partition_key VARCHAR(255) DEFAULT NULL,
                     payload CLOB NOT NULL,
-                    headers CLOB DEFAULT NULL,
+                    headers VARCHAR(1024) DEFAULT NULL,
                     status VARCHAR(16) NOT NULL DEFAULT 'INIT',
                     retry_count INT NOT NULL DEFAULT 0,
                     next_retry_time TIMESTAMP(3) DEFAULT NULL,
