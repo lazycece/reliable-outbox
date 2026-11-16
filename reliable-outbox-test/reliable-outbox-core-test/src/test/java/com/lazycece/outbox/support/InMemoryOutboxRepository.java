@@ -44,12 +44,6 @@ public class InMemoryOutboxRepository implements OutboxRepository {
         return copy(copy);
     }
 
-    public synchronized void setDeleted(Long id, boolean deleted) {
-        OutboxMessage message = messages.get(id);
-        Objects.requireNonNull(message, "message");
-        message.setDeleted(deleted);
-    }
-
     public synchronized OutboxMessage get(Long id) {
         OutboxMessage message = messages.get(id);
         return message == null ? null : copy(message);
@@ -116,7 +110,7 @@ public class InMemoryOutboxRepository implements OutboxRepository {
     }
 
     private boolean acquirable(OutboxMessage message, LocalDateTime now) {
-        if (message == null || !message.getStatus().isDispatchable() || message.isDeleted()) {
+        if (message == null || !message.getStatus().isDispatchable()) {
             return false;
         }
         return message.getOwnerToken() == null
@@ -179,8 +173,7 @@ public class InMemoryOutboxRepository implements OutboxRepository {
     @Override
     public synchronized boolean resetForReplay(String msgId, LocalDateTime nextRetryTime, LocalDateTime now) {
         OutboxMessage message = findByMsgIdInternal(msgId);
-        if (message == null || message.getStatus() != com.lazycece.outbox.model.OutboxStatus.DEAD
-                || message.isDeleted()) {
+        if (message == null || message.getStatus() != com.lazycece.outbox.model.OutboxStatus.DEAD) {
             return false;
         }
         message.setStatus(com.lazycece.outbox.model.OutboxStatus.INIT);
@@ -197,7 +190,7 @@ public class InMemoryOutboxRepository implements OutboxRepository {
     public synchronized List<Long> scanDispatchableIds(int limit, LocalDateTime now) {
         List<OutboxMessage> candidates = new ArrayList<>();
         for (OutboxMessage message : messages.values()) {
-            if (message.getStatus().isDispatchable() && !message.isDeleted()
+            if (message.getStatus().isDispatchable()
                     && message.getNextRetryTime() != null
                     && !message.getNextRetryTime().isAfter(now)
                     && acquirable(message, now)) {
@@ -244,7 +237,6 @@ public class InMemoryOutboxRepository implements OutboxRepository {
         copy.setPayload(source.getPayload());
         copy.setHeaders(source.getHeaders());
         copy.setStatus(source.getStatus());
-        copy.setDeleted(source.isDeleted());
         copy.setRetryCount(source.getRetryCount());
         copy.setNextRetryTime(source.getNextRetryTime());
         copy.setOwnerToken(source.getOwnerToken());

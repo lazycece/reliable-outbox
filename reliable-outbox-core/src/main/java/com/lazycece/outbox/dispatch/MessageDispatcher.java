@@ -75,10 +75,6 @@ public class MessageDispatcher {
             log.warn("outbox message not found, id={}", id);
             return;
         }
-        if (fresh.isDeleted()) {
-            log.debug("outbox message deleted, skip, id={}, msgId={}", id, fresh.getMsgId());
-            return;
-        }
         LocalDateTime now = LocalDateTime.now();
         if (!ownerToken.equals(fresh.getOwnerToken())) {
             log.warn("lease lost before publish, skip, id={}, msgId={}", id, fresh.getMsgId());

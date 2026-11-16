@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS t_outbox (
     last_error VARCHAR(1000) DEFAULT NULL,
     created_at TIMESTAMP(3) NOT NULL,
     updated_at TIMESTAMP(3) NOT NULL ON UPDATE CURRENT_TIMESTAMP(3),
-    deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     CONSTRAINT uk_msg_id UNIQUE (msg_id)
 );

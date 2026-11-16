@@ -200,18 +200,6 @@ class MessageDispatcherTest {
     }
 
     @Test
-    void deletedMessageIsNotPublished() {
-        OutboxMessage message = seed("m1", OutboxStatus.INIT, 0);
-        LocalDateTime now = LocalDateTime.now();
-        repository.tryAcquire(message.getId(), "owner", now.plusSeconds(60), now);
-        repository.setDeleted(message.getId(), true);
-
-        dispatcher.dispatchAcquired(message.getId(), "owner");
-
-        verify(publisher, never()).publish(any());
-    }
-
-    @Test
     void markSentFailureReportsLeaseLoss() {
         InMemoryOutboxRepository spyRepository = spy(repository);
         OutboxMessage message = spyRepository.put(seedMessage("m1"));

@@ -40,8 +40,7 @@ public class OutboxMessage {
      */
     private String topic;
     /**
-     * Optional partition key; used only for broker routing and consumer grouping, no ordering
-     * guarantee.
+     * Optional partition key; used only for broker routing and consumer grouping.
      */
     private String partitionKey;
     /**
@@ -88,10 +87,6 @@ public class OutboxMessage {
      * Record update time.
      */
     private LocalDateTime updatedAt;
-    /**
-     * Soft-delete flag: 0 active, 1 deleted; deleted messages are never dispatched again.
-     */
-    private boolean deleted;
 
     public Long getId() {
         return id;
@@ -219,13 +214,5 @@ public class OutboxMessage {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
-    }
-
-    public boolean isDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(boolean deleted) {
-        this.deleted = deleted;
     }
 }

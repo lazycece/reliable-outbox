@@ -110,7 +110,7 @@ class JdbcOutboxRepositoryTest {
     }
 
     @Test
-    void tryAcquireRespectsStatusDeletedAndLease() {
+    void tryAcquireRespectsStatusAndLease() {
         OutboxMessage message = message("m1");
         repository.insert(message);
         LocalDateTime now = LocalDateTime.now();
@@ -120,10 +120,6 @@ class JdbcOutboxRepositoryTest {
         assertThat(repository.tryAcquire(message.getId(), "t2",
                 now.plusSeconds(60), now.plusSeconds(61))).isTrue();
         assertThat(repository.findById(message.getId()).getOwnerToken()).isEqualTo("t2");
-
-        jdbcTemplate.update("UPDATE t_outbox SET deleted = 1 WHERE id = ?", message.getId());
-        assertThat(repository.tryAcquire(message.getId(), "t3",
-                now.plusSeconds(60), now.plusSeconds(120))).isFalse();
     }
 
     @Test
@@ -196,7 +192,7 @@ class JdbcOutboxRepositoryTest {
     }
 
     @Test
-    void resetForReplayOnlyResetsNonDeletedDeadMessages() {
+    void resetForReplayOnlyResetsDeadMessages() {
         OutboxMessage message = message("m1");
         repository.insert(message);
         jdbcTemplate.update("UPDATE t_outbox SET status = 'DEAD', retry_count = 16 WHERE id = ?",
@@ -209,15 +205,11 @@ class JdbcOutboxRepositoryTest {
         assertThat(reset.getRetryCount()).isZero();
         assertWithinOneMilli(reset.getNextRetryTime(), now);
         assertThat(repository.resetForReplay("m1", now, now)).isFalse();
-
-        jdbcTemplate.update("UPDATE t_outbox SET status = 'DEAD', deleted = 1 WHERE id = ?",
-                message.getId());
-        assertThat(repository.resetForReplay("m1", now, now)).isFalse();
         assertThat(repository.resetForReplay("missing", now, now)).isFalse();
     }
 
     @Test
-    void scanDispatchableIdsFiltersDeletedFutureAndLeasedRows() {
+    void scanDispatchableIdsFiltersFutureAndLeasedRows() {
         LocalDateTime now = LocalDateTime.now();
         OutboxMessage due1 = message("due1");
         due1.setNextRetryTime(now.minusSeconds(10));
@@ -234,9 +226,6 @@ class JdbcOutboxRepositoryTest {
 
         repository.tryAcquire(due1.getId(), "owner", now.plusSeconds(60), now);
         assertThat(repository.scanDispatchableIds(10, now)).containsExactly(due2.getId());
-
-        jdbcTemplate.update("UPDATE t_outbox SET deleted = 1 WHERE id = ?", due2.getId());
-        assertThat(repository.scanDispatchableIds(10, now)).isEmpty();
     }
 
     @Test
