@@ -122,18 +122,8 @@ public class DefaultMessageClient implements MessageClient {
         Objects.requireNonNull(message, "message");
         requireText(message.getBizCode(), "bizCode");
         requireText(message.getTopic(), "topic");
-        if (message.getPayload() == null) {
-            throw new IllegalArgumentException("payload must not be null");
-        }
-        if (message.getBizCode().length() > 64) {
-            throw new IllegalArgumentException("bizCode length must not exceed 64");
-        }
-        if (message.getTopic().length() > 255) {
-            throw new IllegalArgumentException("topic length must not exceed 255");
-        }
-        if (message.getPartitionKey() != null && message.getPartitionKey().length() > 255) {
-            throw new IllegalArgumentException("partitionKey length must not exceed 255");
-        }
+        requireText(message.getPayload(), "payload");
+
         if (message.getMsgId() != null
                 && !message.getMsgId().matches("[A-Za-z0-9_-]{1,64}")) {
             throw new IllegalArgumentException(
