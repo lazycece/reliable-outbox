@@ -18,6 +18,7 @@ package com.lazycece.outbox.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.lazycece.outbox.core.model.OutboxStatus;
 import org.junit.jupiter.api.Test;
 
 /**

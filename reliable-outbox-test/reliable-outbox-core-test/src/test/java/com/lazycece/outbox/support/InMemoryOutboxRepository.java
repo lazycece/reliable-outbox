@@ -15,9 +15,10 @@
  */
 package com.lazycece.outbox.support;
 
-import com.lazycece.outbox.model.OutboxMessage;
-import com.lazycece.outbox.repository.DuplicateMessageException;
-import com.lazycece.outbox.repository.OutboxRepository;
+import com.lazycece.outbox.core.model.OutboxStatus;
+import com.lazycece.outbox.core.model.OutboxMessage;
+import com.lazycece.outbox.core.repository.DuplicateMessageException;
+import com.lazycece.outbox.core.repository.OutboxRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -138,7 +139,7 @@ public class InMemoryOutboxRepository implements OutboxRepository {
                 || !message.getStatus().isDispatchable()) {
             return false;
         }
-        message.setStatus(com.lazycece.outbox.model.OutboxStatus.SENT);
+        message.setStatus(OutboxStatus.SENT);
         message.setRetryCount(retryCount);
         message.setOwnerToken(null);
         message.setOwnerExpireAt(null);
@@ -159,8 +160,8 @@ public class InMemoryOutboxRepository implements OutboxRepository {
             return false;
         }
         message.setStatus(dead
-                ? com.lazycece.outbox.model.OutboxStatus.DEAD
-                : com.lazycece.outbox.model.OutboxStatus.PENDING);
+                ? OutboxStatus.DEAD
+                : OutboxStatus.PENDING);
         message.setOwnerToken(null);
         message.setOwnerExpireAt(null);
         message.setRetryCount(retryCount);
@@ -173,10 +174,10 @@ public class InMemoryOutboxRepository implements OutboxRepository {
     @Override
     public synchronized boolean resetForReplay(String msgId, LocalDateTime nextRetryTime, LocalDateTime now) {
         OutboxMessage message = findByMsgIdInternal(msgId);
-        if (message == null || message.getStatus() != com.lazycece.outbox.model.OutboxStatus.DEAD) {
+        if (message == null || message.getStatus() != OutboxStatus.DEAD) {
             return false;
         }
-        message.setStatus(com.lazycece.outbox.model.OutboxStatus.PENDING);
+        message.setStatus(OutboxStatus.PENDING);
         message.setRetryCount(0);
         message.setNextRetryTime(nextRetryTime);
         message.setOwnerToken(null);
@@ -206,7 +207,7 @@ public class InMemoryOutboxRepository implements OutboxRepository {
     @Override
     public synchronized List<Long> scanSentBefore(LocalDateTime before, int limit) {
         return messages.values().stream()
-                .filter(message -> message.getStatus() == com.lazycece.outbox.model.OutboxStatus.SENT)
+                .filter(message -> message.getStatus() == OutboxStatus.SENT)
                 .filter(message -> message.getSentAt() != null && message.getSentAt().isBefore(before))
                 .sorted(Comparator.comparing(OutboxMessage::getSentAt))
                 .limit(limit)
@@ -219,7 +220,7 @@ public class InMemoryOutboxRepository implements OutboxRepository {
         int deleted = 0;
         for (Long id : ids) {
             OutboxMessage message = messages.get(id);
-            if (message != null && message.getStatus() == com.lazycece.outbox.model.OutboxStatus.SENT) {
+            if (message != null && message.getStatus() == OutboxStatus.SENT) {
                 messages.remove(id);
                 deleted++;
             }

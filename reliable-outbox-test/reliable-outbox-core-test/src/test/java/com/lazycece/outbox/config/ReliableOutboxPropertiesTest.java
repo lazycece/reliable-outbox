@@ -18,6 +18,7 @@ package com.lazycece.outbox.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.lazycece.outbox.core.config.ReliableOutboxProperties;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 

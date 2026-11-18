@@ -20,9 +20,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.lazycece.outbox.dispatch.MessageDispatcher;
-import com.lazycece.outbox.model.OutboxMessage;
-import com.lazycece.outbox.model.OutboxStatus;
+import com.lazycece.outbox.core.deadletter.DeadLetterReplayer;
+import com.lazycece.outbox.core.dispatch.MessageDispatcher;
+import com.lazycece.outbox.core.model.OutboxMessage;
+import com.lazycece.outbox.core.model.OutboxStatus;
 import com.lazycece.outbox.support.InMemoryOutboxRepository;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;

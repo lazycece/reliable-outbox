@@ -17,6 +17,8 @@ package com.lazycece.outbox.spi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.lazycece.outbox.core.spi.NonRetryablePublishException;
+import com.lazycece.outbox.core.spi.PublishException;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -18,14 +18,15 @@ package com.lazycece.outbox.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.lazycece.outbox.model.OutboxMessage;
-import com.lazycece.outbox.model.OutboxStatus;
+import com.lazycece.outbox.core.model.OutboxMessage;
+import com.lazycece.outbox.core.model.OutboxStatus;
+import com.lazycece.outbox.core.repository.DuplicateMessageException;
+import com.lazycece.outbox.core.repository.JdbcOutboxRepository;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import javax.sql.DataSource;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

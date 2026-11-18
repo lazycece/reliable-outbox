@@ -17,9 +17,10 @@ package com.lazycece.outbox.clean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.lazycece.outbox.config.ReliableOutboxProperties;
-import com.lazycece.outbox.model.OutboxMessage;
-import com.lazycece.outbox.model.OutboxStatus;
+import com.lazycece.outbox.core.config.ReliableOutboxProperties;
+import com.lazycece.outbox.core.clean.OutboxCleaner;
+import com.lazycece.outbox.core.model.OutboxMessage;
+import com.lazycece.outbox.core.model.OutboxStatus;
 import com.lazycece.outbox.support.InMemoryOutboxRepository;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;

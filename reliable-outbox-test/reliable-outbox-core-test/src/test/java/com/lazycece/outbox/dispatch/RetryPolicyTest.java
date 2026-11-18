@@ -17,6 +17,7 @@ package com.lazycece.outbox.dispatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.lazycece.outbox.core.dispatch.RetryPolicy;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;

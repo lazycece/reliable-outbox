@@ -21,8 +21,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.lazycece.outbox.model.OutboxMessage;
-import com.lazycece.outbox.spi.MessageListener;
+import com.lazycece.outbox.core.deadletter.DeadLetterHandler;
+import com.lazycece.outbox.core.model.OutboxMessage;
+import com.lazycece.outbox.core.spi.MessageListener;
 import org.junit.jupiter.api.Test;
 
 /**
