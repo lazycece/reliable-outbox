@@ -39,11 +39,6 @@ public class JdbcOutboxRepository implements OutboxRepository {
 
     private static final Pattern TABLE_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]{0,63}");
 
-    private static final String COLUMNS = """
-            id, msg_id, biz_code, topic, partition_key, payload, headers, status, retry_count, \
-            next_retry_time, owner_token, owner_expire_at, sent_at, last_error, created_at, \
-            updated_at""";
-
     private static final int STATUS_PENDING = OutboxStatus.PENDING.getCode();
     private static final int STATUS_SENT = OutboxStatus.SENT.getCode();
     private static final int STATUS_DEAD = OutboxStatus.DEAD.getCode();
@@ -63,30 +58,28 @@ public class JdbcOutboxRepository implements OutboxRepository {
     @Override
     public void insert(OutboxMessage message) {
         try {
-            message.setId(sql(message));
+            message.setId(doInsert(message));
         } catch (DuplicateKeyException e) {
             // MySQL/InnoDB only: a failed single statement does not abort the transaction.
             throw new DuplicateMessageException(message.getMsgId(), e);
         }
     }
 
-    private long sql(OutboxMessage message) {
+    private long doInsert(OutboxMessage message) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO " + tableName + " (msg_id, biz_code, topic, partition_key, "
-                            + "payload, headers, status, retry_count, next_retry_time, created_at, updated_at) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, " + STATUS_PENDING + ", 0, ?, ?, ?)",
-                    Statement.RETURN_GENERATED_KEYS);
+                    sql(OutboxSql.INSERT), Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, message.getMsgId());
             ps.setString(2, message.getBizCode());
             ps.setString(3, message.getTopic());
             ps.setString(4, message.getPartitionKey());
             ps.setString(5, message.getPayload());
             ps.setString(6, message.getHeaders());
-            ps.setObject(7, message.getNextRetryTime());
-            ps.setObject(8, message.getCreatedAt());
-            ps.setObject(9, message.getUpdatedAt());
+            ps.setInt(7, STATUS_PENDING);
+            ps.setObject(8, message.getNextRetryTime());
+            ps.setObject(9, message.getCreatedAt());
+            ps.setObject(10, message.getUpdatedAt());
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
@@ -100,16 +93,14 @@ public class JdbcOutboxRepository implements OutboxRepository {
     @Override
     public OutboxMessage findById(Long id) {
         List<OutboxMessage> list = jdbcTemplate.query(
-                "SELECT " + COLUMNS + " FROM " + tableName + " WHERE id = ?",
-                outboxRowMapper(), id);
+                sql(OutboxSql.FIND_BY_ID), outboxRowMapper(), id);
         return list.isEmpty() ? null : list.get(0);
     }
 
     @Override
     public OutboxMessage findByMsgId(String msgId) {
         List<OutboxMessage> list = jdbcTemplate.query(
-                "SELECT " + COLUMNS + " FROM " + tableName + " WHERE msg_id = ?",
-                outboxRowMapper(), msgId);
+                sql(OutboxSql.FIND_BY_MSG_ID), outboxRowMapper(), msgId);
         return list.isEmpty() ? null : list.get(0);
     }
 
@@ -144,10 +135,8 @@ public class JdbcOutboxRepository implements OutboxRepository {
     public boolean tryAcquire(Long id, String ownerToken, LocalDateTime ownerExpireAt,
             LocalDateTime now) {
         int rows = jdbcTemplate.update(
-                "UPDATE " + tableName + " SET owner_token = ?, owner_expire_at = ?, updated_at = ? "
-                        + "WHERE id = ? AND status = " + STATUS_PENDING + " "
-                        + "AND (owner_token IS NULL OR owner_expire_at < ?)",
-                ownerToken, ownerExpireAt, now, id, now);
+                sql(OutboxSql.TRY_ACQUIRE),
+                ownerToken, ownerExpireAt, now, id, STATUS_PENDING, now);
         return rows == 1;
     }
 
@@ -155,21 +144,15 @@ public class JdbcOutboxRepository implements OutboxRepository {
     public boolean tryAcquireDue(Long id, String ownerToken, LocalDateTime ownerExpireAt,
             LocalDateTime dueAt) {
         int rows = jdbcTemplate.update(
-                "UPDATE " + tableName + " SET owner_token = ?, owner_expire_at = ?, updated_at = ? "
-                        + "WHERE id = ? AND status = " + STATUS_PENDING + " "
-                        + "AND next_retry_time IS NOT NULL AND next_retry_time <= ? "
-                        + "AND (owner_token IS NULL OR owner_expire_at < ?)",
-                ownerToken, ownerExpireAt, dueAt, id, dueAt, dueAt);
+                sql(OutboxSql.TRY_ACQUIRE_DUE),
+                ownerToken, ownerExpireAt, dueAt, id, STATUS_PENDING, dueAt, dueAt);
         return rows == 1;
     }
 
     @Override
     public boolean releaseLease(Long id, String ownerToken, LocalDateTime now) {
         int rows = jdbcTemplate.update(
-                "UPDATE " + tableName
-                        + " SET owner_token = NULL, owner_expire_at = NULL, updated_at = ? "
-                        + "WHERE id = ? AND owner_token = ?",
-                now, id, ownerToken);
+                sql(OutboxSql.RELEASE_LEASE), now, id, ownerToken);
         return rows == 1;
     }
 
@@ -177,13 +160,8 @@ public class JdbcOutboxRepository implements OutboxRepository {
     public boolean markSent(Long id, String ownerToken, LocalDateTime sentAt,
             int retryCount) {
         int rows = jdbcTemplate.update(
-                "UPDATE " + tableName
-                        + " SET status = " + STATUS_SENT
-                        + ", owner_token = NULL, owner_expire_at = NULL, "
-                        + "sent_at = ?, retry_count = ?, next_retry_time = NULL, "
-                        + "last_error = NULL, updated_at = ? "
-                        + "WHERE id = ? AND owner_token = ? AND status = " + STATUS_PENDING,
-                sentAt, retryCount, sentAt, id, ownerToken);
+                sql(OutboxSql.MARK_SENT),
+                STATUS_SENT, sentAt, retryCount, sentAt, id, ownerToken, STATUS_PENDING);
         return rows == 1;
     }
 
@@ -193,55 +171,37 @@ public class JdbcOutboxRepository implements OutboxRepository {
             boolean dead, LocalDateTime now) {
         if (dead) {
             int rows = jdbcTemplate.update(
-                    "UPDATE " + tableName
-                            + " SET status = " + STATUS_DEAD
-                            + ", owner_token = NULL, owner_expire_at = NULL, "
-                            + "retry_count = ?, next_retry_time = NULL, last_error = ?, updated_at = ? "
-                            + "WHERE id = ? AND owner_token = ? AND status = " + STATUS_PENDING,
-                    retryCount, error, now, id, ownerToken);
+                    sql(OutboxSql.MARK_FAILED_DEAD),
+                    STATUS_DEAD, retryCount, error, now, id, ownerToken, STATUS_PENDING);
             return rows == 1;
         }
         int rows = jdbcTemplate.update(
-                "UPDATE " + tableName
-                        + " SET status = " + STATUS_PENDING
-                        + ", owner_token = NULL, owner_expire_at = NULL, "
-                        + "retry_count = ?, next_retry_time = ?, last_error = ?, updated_at = ? "
-                        + "WHERE id = ? AND owner_token = ? AND status = " + STATUS_PENDING,
-                retryCount, nextRetryTime, error, now, id, ownerToken);
+                sql(OutboxSql.MARK_FAILED_RETRY),
+                STATUS_PENDING, retryCount, nextRetryTime, error, now, id, ownerToken,
+                STATUS_PENDING);
         return rows == 1;
     }
 
     @Override
     public boolean resetForReplay(String msgId, LocalDateTime nextRetryTime, LocalDateTime now) {
         int rows = jdbcTemplate.update(
-                "UPDATE " + tableName + " SET status = " + STATUS_PENDING
-                        + ", retry_count = 0, "
-                        + "next_retry_time = ?, "
-                        + "owner_token = NULL, owner_expire_at = NULL, last_error = NULL, updated_at = ? "
-                        + "WHERE msg_id = ? AND status = " + STATUS_DEAD,
-                nextRetryTime, now, msgId);
+                sql(OutboxSql.RESET_FOR_REPLAY),
+                STATUS_PENDING, nextRetryTime, now, msgId, STATUS_DEAD);
         return rows == 1;
     }
 
     @Override
     public List<Long> scanDispatchableIds(int limit, LocalDateTime now) {
         return jdbcTemplate.queryForList(
-                "SELECT id FROM " + tableName + " "
-                        + "WHERE status = " + STATUS_PENDING + " "
-                        + "AND next_retry_time IS NOT NULL "
-                        + "AND next_retry_time <= ? "
-                        + "AND (owner_token IS NULL OR owner_expire_at < ?) "
-                        + "ORDER BY next_retry_time, id LIMIT ?",
-                Long.class, now, now, limit);
+                sql(OutboxSql.SCAN_DISPATCHABLE),
+                Long.class, STATUS_PENDING, now, now, limit);
     }
 
     @Override
     public List<Long> scanSentBefore(LocalDateTime before, int limit) {
         return jdbcTemplate.queryForList(
-                "SELECT id FROM " + tableName + " WHERE status = " + STATUS_SENT
-                        + " AND sent_at < ? "
-                        + "ORDER BY sent_at LIMIT ?",
-                Long.class, before, limit);
+                sql(OutboxSql.SCAN_SENT_BEFORE),
+                Long.class, STATUS_SENT, before, limit);
     }
 
     @Override
@@ -250,9 +210,18 @@ public class JdbcOutboxRepository implements OutboxRepository {
             return 0;
         }
         String inSql = String.join(",", Collections.nCopies(ids.size(), "?"));
-        return jdbcTemplate.update(
-                "DELETE FROM " + tableName + " WHERE id IN (" + inSql + ") AND status = "
-                        + STATUS_SENT,
-                ids.toArray());
+        Object[] params = new Object[ids.size() + 1];
+        for (int i = 0; i < ids.size(); i++) {
+            params[i] = ids.get(i);
+        }
+        params[ids.size()] = STATUS_SENT;
+        return jdbcTemplate.update(sql(OutboxSql.DELETE_SENT, inSql), params);
+    }
+
+    private String sql(String template, Object... args) {
+        Object[] params = new Object[args.length + 1];
+        params[0] = tableName;
+        System.arraycopy(args, 0, params, 1, args.length);
+        return template.formatted(params);
     }
 }
