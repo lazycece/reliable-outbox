@@ -210,18 +210,13 @@ public class JdbcOutboxRepository implements OutboxRepository {
             return 0;
         }
         String inSql = String.join(",", Collections.nCopies(ids.size(), "?"));
-        Object[] params = new Object[ids.size() + 1];
-        for (int i = 0; i < ids.size(); i++) {
-            params[i] = ids.get(i);
-        }
+        Object[] params = ids.toArray(new Object[ids.size() + 1]);
         params[ids.size()] = STATUS_SENT;
-        return jdbcTemplate.update(sql(OutboxSql.DELETE_SENT, inSql), params);
+        return jdbcTemplate.update(
+                OutboxSql.DELETE_SENT.formatted(tableName, inSql), params);
     }
 
-    private String sql(String template, Object... args) {
-        Object[] params = new Object[args.length + 1];
-        params[0] = tableName;
-        System.arraycopy(args, 0, params, 1, args.length);
-        return template.formatted(params);
+    private String sql(String template) {
+        return template.formatted(tableName);
     }
 }
