@@ -27,6 +27,7 @@
     <modules>
         <module>reliable-outbox-core-test</module>
         <module>reliable-outbox-spring-boot-starter-test</module>
+        <module>reliable-outbox-kafka-test</module>
     </modules>
 
 </project>
