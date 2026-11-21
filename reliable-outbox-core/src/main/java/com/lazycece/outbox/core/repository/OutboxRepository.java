@@ -42,7 +42,7 @@ public interface OutboxRepository {
     boolean tryAcquire(Long id, String ownerToken, LocalDateTime ownerExpireAt, LocalDateTime now);
 
     /**
-     * Also requires next_retry_time <= dueAt; used by scanner and retry accelerator.
+     * Also requires next_retry_time <= dueAt; used by the scanner.
      */
     boolean tryAcquireDue(Long id, String ownerToken, LocalDateTime ownerExpireAt,
             LocalDateTime dueAt);
