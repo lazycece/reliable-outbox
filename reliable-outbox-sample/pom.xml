@@ -27,6 +27,7 @@
     <modules>
         <module>reliable-outbox-sample-common</module>
         <module>reliable-outbox-sample-kafka</module>
+        <module>reliable-outbox-sample-rocketmq</module>
     </modules>
 
 </project>
