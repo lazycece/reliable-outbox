@@ -38,6 +38,7 @@
         <module>reliable-outbox-spring-boot-starter</module>
         <module>reliable-outbox-kafka</module>
         <module>reliable-outbox-test</module>
+        <module>reliable-outbox-sample</module>
     </modules>
 
     <properties>
