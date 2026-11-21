@@ -1,0 +1,51 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: reliable-outbox-sample-kafka
+  datasource:
+    url: jdbc:h2:mem:outbox-sample;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        # Fail fast when the broker is unreachable instead of blocking for the 60s default.
+        max.block.ms: 3000
+        delivery.timeout.ms: 5000
+        request.timeout.ms: 3000
+    consumer:
+      group-id: reliable-outbox-sample
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+reliable-outbox:
+  # Demo-friendly timing; use the defaults in production and size them per the design doc.
+  dispatch:
+    initial-grace: 2s
+    lease-duration: 10s
+  scan:
+    batch-size: 50
+  retry:
+    max-count: 3
+    initial-interval: 2s
+    max-interval: 10s
+    jitter: 500ms
+  kafka:
+    send-timeout: 3s
+
+sample:
+  outbox:
+    scan-interval-ms: 1000
+    clean-interval-ms: 600000
