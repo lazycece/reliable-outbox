@@ -1,0 +1,41 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: reliable-outbox-sample-rocketmq
+  datasource:
+    url: jdbc:h2:mem:outbox-sample;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+reliable-outbox:
+  # Demo-friendly timing; use the defaults in production and size them per the design doc.
+  dispatch:
+    initial-grace: 2s
+    lease-duration: 10s
+  scan:
+    batch-size: 50
+  retry:
+    max-count: 3
+    initial-interval: 2s
+    max-interval: 10s
+    jitter: 500ms
+  rocketmq:
+    namesrv-addr: ${ROCKETMQ_NAMESRV_ADDR:localhost:9876}
+    producer-group: reliable-outbox-sample-producer
+    send-timeout: 3s
+
+sample:
+  rocketmq:
+    # Disable to run the app without a broker (e.g. unit tests).
+    consumer-enabled: true
+    consumer-group: reliable-outbox-sample-consumer
+  outbox:
+    scan-interval-ms: 1000
+    clean-interval-ms: 600000
