@@ -50,6 +50,8 @@ public class OutboxJobs {
         }
     }
 
+    // Single instance uses clean(); when driven by ElasticJob / xxl-job sharding broadcast,
+    // call outboxCleaner.clean(shardContext.getShardingItem(), shardContext.getShardingTotalCount()) instead.
     @Scheduled(
             fixedDelayString = "${sample.outbox.clean-interval-ms:600000}",
             initialDelayString = "${sample.outbox.clean-interval-ms:600000}")

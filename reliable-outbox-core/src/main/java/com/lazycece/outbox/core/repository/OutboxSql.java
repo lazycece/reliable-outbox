@@ -130,12 +130,16 @@ final class OutboxSql {
              ORDER BY next_retry_time, id
              LIMIT ?""";
 
-    static final String SCAN_SENT_BEFORE = """
+    static final String MIN_SENT_AT =
+            "SELECT MIN(sent_at) FROM %s WHERE status = ?";
+
+    static final String SCAN_SENT_BETWEEN = """
             SELECT id
               FROM %s
              WHERE status = ?
+               AND sent_at >= ?
                AND sent_at < ?
-             ORDER BY sent_at
+             ORDER BY sent_at, id
              LIMIT ?""";
 
     static final String DELETE_SENT = """

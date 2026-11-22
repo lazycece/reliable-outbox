@@ -205,11 +205,25 @@ public class InMemoryOutboxRepository implements OutboxRepository {
     }
 
     @Override
-    public synchronized List<Long> scanSentBefore(LocalDateTime before, int limit) {
+    public synchronized LocalDateTime minSentAt() {
         return messages.values().stream()
                 .filter(message -> message.getStatus() == OutboxStatus.SENT)
-                .filter(message -> message.getSentAt() != null && message.getSentAt().isBefore(before))
-                .sorted(Comparator.comparing(OutboxMessage::getSentAt))
+                .map(OutboxMessage::getSentAt)
+                .filter(Objects::nonNull)
+                .min(Comparator.naturalOrder())
+                .orElse(null);
+    }
+
+    @Override
+    public synchronized List<Long> scanSentBetween(LocalDateTime from, LocalDateTime to,
+            int limit) {
+        return messages.values().stream()
+                .filter(message -> message.getStatus() == OutboxStatus.SENT)
+                .filter(message -> message.getSentAt() != null
+                        && !message.getSentAt().isBefore(from)
+                        && message.getSentAt().isBefore(to))
+                .sorted(Comparator.comparing(OutboxMessage::getSentAt)
+                        .thenComparing(OutboxMessage::getId))
                 .limit(limit)
                 .map(OutboxMessage::getId)
                 .toList();

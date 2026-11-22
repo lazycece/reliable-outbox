@@ -97,4 +97,61 @@ class OutboxCleanerTest {
         cleaner.clean();
         assertThat(repository.all()).isEmpty();
     }
+
+    @Test
+    void singleShardCleanEqualsFullClean() {
+        LocalDateTime old = LocalDateTime.now().minus(8, ChronoUnit.DAYS);
+        seedSent("old1", old);
+        seedSent("old2", old.plusSeconds(1));
+
+        cleaner.clean(0, 1);
+
+        assertThat(repository.all()).isEmpty();
+    }
+
+    @Test
+    void shardedCleanConvergesAcrossRoundsAndKeepsRecentAndDead() {
+        properties.getClean().setBatchSize(10);
+        properties.getClean().setMaxBatchesPerRun(10);
+        cleaner = new OutboxCleaner(repository, properties);
+
+        LocalDateTime old = LocalDateTime.now().minus(10, ChronoUnit.DAYS);
+        LocalDateTime[] times = {
+                old,
+                old.plus(12, ChronoUnit.HOURS),
+                old.plus(1, ChronoUnit.DAYS),
+                old.plus(36, ChronoUnit.HOURS),
+                old.plus(2, ChronoUnit.DAYS),
+                old.plus(60, ChronoUnit.HOURS)
+        };
+        for (int i = 0; i < times.length; i++) {
+            seedSent("old" + i, times[i]);
+        }
+        seedSent("recent", LocalDateTime.now());
+        OutboxMessage dead = seedSent("dead", old);
+        dead.setStatus(OutboxStatus.DEAD);
+        repository.put(dead);
+
+        // Sequential shard calls let minSent advance between shards, so cleanup converges over
+        // rounds rather than completing in a single pass. The lowest slice always deletes the
+        // global oldest row, guaranteeing progress; 10 rounds is ample for 6 expired rows.
+        for (int round = 0; round < 10; round++) {
+            for (int shard = 0; shard < 3; shard++) {
+                cleaner.clean(shard, 3);
+            }
+        }
+
+        assertThat(repository.all()).extracting(OutboxMessage::getMsgId)
+                .containsExactlyInAnyOrder("recent", "dead");
+    }
+
+    @Test
+    void rejectsInvalidShardArguments() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> cleaner.clean(0, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> cleaner.clean(-1, 3))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> cleaner.clean(3, 3))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

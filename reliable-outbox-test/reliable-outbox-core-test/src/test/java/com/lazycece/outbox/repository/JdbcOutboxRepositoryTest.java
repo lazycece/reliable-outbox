@@ -251,7 +251,8 @@ class JdbcOutboxRepositoryTest {
         jdbcTemplate.update("UPDATE t_outbox SET status = 2, sent_at = ? WHERE id = ?",
                 oldSentAt, dead.getId());
 
-        List<Long> candidates = repository.scanSentBefore(now.minusSeconds(24 * 3600L), 10);
+        List<Long> candidates = repository.scanSentBetween(
+                now.minusSeconds(10 * 24 * 3600L), now.minusSeconds(24 * 3600L), 10);
         assertThat(candidates).containsExactly(old1.getId(), old2.getId());
         assertThat(repository.deleteSent(candidates)).isEqualTo(2);
         assertThat(repository.findById(old1.getId())).isNull();
@@ -269,6 +270,44 @@ class JdbcOutboxRepositoryTest {
         assertThatThrownBy(() -> new JdbcOutboxRepository(jdbcTemplate, (String) null))
                 .isInstanceOf(IllegalArgumentException.class);
         new JdbcOutboxRepository(jdbcTemplate, "biz_event_outbox");
+    }
+
+    @Test
+    void minSentAtAndScanSentBetweenRespectStatusAndBounds() {
+        LocalDateTime base = LocalDateTime.of(2026, 1, 1, 0, 0);
+        OutboxMessage a = message("a");
+        OutboxMessage b = message("b");
+        OutboxMessage c = message("c");
+        OutboxMessage dead = message("dead");
+        repository.insert(a);
+        repository.insert(b);
+        repository.insert(c);
+        repository.insert(dead);
+
+        jdbcTemplate.update("UPDATE t_outbox SET status = 1, sent_at = ? WHERE id = ?",
+                base, a.getId());
+        jdbcTemplate.update("UPDATE t_outbox SET status = 1, sent_at = ? WHERE id = ?",
+                base.plusSeconds(1), b.getId());
+        jdbcTemplate.update("UPDATE t_outbox SET status = 1, sent_at = ? WHERE id = ?",
+                base.plusSeconds(2), c.getId());
+        jdbcTemplate.update("UPDATE t_outbox SET status = 2, sent_at = ? WHERE id = ?",
+                base, dead.getId());
+
+        assertWithinOneMilli(repository.minSentAt(), base);
+
+        // [from, to): 含 from，不含 to
+        assertThat(repository.scanSentBetween(base, base.plusSeconds(2), 10))
+                .containsExactly(a.getId(), b.getId());
+        assertThat(repository.scanSentBetween(base.plusSeconds(2), base.plusSeconds(3), 10))
+                .containsExactly(c.getId());
+        assertThat(repository.scanSentBetween(base.plusSeconds(3), base.plusSeconds(4), 10))
+                .isEmpty();
+    }
+
+    @Test
+    void minSentAtIsNullWhenNoSentMessages() {
+        repository.insert(message("pending"));
+        assertThat(repository.minSentAt()).isNull();
     }
 
     private static void assertWithinOneMilli(LocalDateTime actual, LocalDateTime expected) {

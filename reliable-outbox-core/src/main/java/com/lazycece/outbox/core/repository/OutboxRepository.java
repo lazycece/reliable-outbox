@@ -64,11 +64,19 @@ public interface OutboxRepository {
     boolean resetForReplay(String msgId, LocalDateTime nextRetryTime, LocalDateTime now);
 
     /**
+     * Returns the smallest sent_at among SENT messages, or null when none exist.
+     */
+    LocalDateTime minSentAt();
+
+    /**
+     * Returns ids of SENT messages with sent_at in [from, to), ordered by sent_at then id.
+     */
+    List<Long> scanSentBetween(LocalDateTime from, LocalDateTime to, int limit);
+
+    /**
      * Returns ids only; ordered by next_retry_time, id ascending.
      */
     List<Long> scanDispatchableIds(int limit, LocalDateTime now);
-
-    List<Long> scanSentBefore(LocalDateTime before, int limit);
 
     int deleteSent(List<Long> ids);
 }

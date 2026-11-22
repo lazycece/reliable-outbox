@@ -198,10 +198,17 @@ public class JdbcOutboxRepository implements OutboxRepository {
     }
 
     @Override
-    public List<Long> scanSentBefore(LocalDateTime before, int limit) {
+    public LocalDateTime minSentAt() {
+        List<LocalDateTime> result = jdbcTemplate.queryForList(
+                sql(OutboxSql.MIN_SENT_AT), LocalDateTime.class, STATUS_SENT);
+        return result.isEmpty() ? null : result.get(0);
+    }
+
+    @Override
+    public List<Long> scanSentBetween(LocalDateTime from, LocalDateTime to, int limit) {
         return jdbcTemplate.queryForList(
-                sql(OutboxSql.SCAN_SENT_BEFORE),
-                Long.class, STATUS_SENT, before, limit);
+                sql(OutboxSql.SCAN_SENT_BETWEEN),
+                Long.class, STATUS_SENT, from, to, limit);
     }
 
     @Override
