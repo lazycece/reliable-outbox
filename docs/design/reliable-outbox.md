@@ -1,3 +1,5 @@
+[English](reliable-outbox.en.md) | **简体中文**
+
 # reliable-outbox：基于本地消息表的可靠消息组件
 
 本文描述 reliable-outbox 的设计取舍与对外约定，重点是设计动机和必须满足的契约。实现细节参见

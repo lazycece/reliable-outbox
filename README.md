@@ -173,7 +173,7 @@ reliable-outbox:
     send-timeout: 5s
 ```
 
-See §8.2 of the [design document](reliable-outbox.md) for the full configuration model.
+See §8.2 of the [design document](docs/design/reliable-outbox.en.md) for the full configuration model.
 
 ## Delivery semantics
 
@@ -223,8 +223,8 @@ mvn test
 
 ## Documentation
 
-- [Design document (Chinese)](reliable-outbox.md) — architecture, data model, state machine, config,
-  SPI, and operations
+- [Design document](docs/design/reliable-outbox.en.md) ([Chinese](docs/design/reliable-outbox.md)) — architecture, data
+  model, state machine, config, SPI, and operations
 - [Kafka sample](reliable-outbox-sample/reliable-outbox-sample-kafka/README.md)
 - [RocketMQ sample](reliable-outbox-sample/reliable-outbox-sample-rocketmq/README.md)
 

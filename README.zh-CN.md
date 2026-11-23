@@ -164,7 +164,7 @@ reliable-outbox:
     send-timeout: 5s
 ```
 
-完整配置模型见[设计文档](reliable-outbox.md)第 8.2 节。
+完整配置模型见[设计文档](docs/design/reliable-outbox.md)第 8.2 节。
 
 ## 投递语义
 
@@ -208,7 +208,7 @@ mvn test
 
 ## 文档
 
-- [设计文档](reliable-outbox.md)：架构、数据模型、状态机、配置、SPI 与运维
+- [设计文档](docs/design/reliable-outbox.md)：架构、数据模型、状态机、配置、SPI 与运维
 - [Kafka 示例](reliable-outbox-sample/reliable-outbox-sample-kafka/README.md)
 - [RocketMQ 示例](reliable-outbox-sample/reliable-outbox-sample-rocketmq/README.md)
 
