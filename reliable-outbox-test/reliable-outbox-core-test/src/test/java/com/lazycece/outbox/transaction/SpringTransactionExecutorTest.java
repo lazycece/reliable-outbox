@@ -32,7 +32,6 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 class SpringTransactionExecutorTest {
 

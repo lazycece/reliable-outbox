@@ -21,7 +21,6 @@ import java.util.List;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public interface OutboxRepository {
 

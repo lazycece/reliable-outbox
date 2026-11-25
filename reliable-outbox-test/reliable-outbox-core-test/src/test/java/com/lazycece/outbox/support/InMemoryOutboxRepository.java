@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public class InMemoryOutboxRepository implements OutboxRepository {
     private final Map<Long, OutboxMessage> messages = new LinkedHashMap<>();

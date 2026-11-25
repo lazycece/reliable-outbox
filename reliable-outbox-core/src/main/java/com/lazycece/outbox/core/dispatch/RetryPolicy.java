@@ -28,7 +28,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * the retry budget.
  *
  * @author lazycece
- * @date 2026/11/11
  */
 public class RetryPolicy {
 

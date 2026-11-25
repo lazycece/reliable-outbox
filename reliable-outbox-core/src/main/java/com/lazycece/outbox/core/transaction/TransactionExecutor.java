@@ -19,7 +19,6 @@ import java.util.function.Supplier;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public interface TransactionExecutor {
 

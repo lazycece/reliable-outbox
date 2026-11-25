@@ -50,7 +50,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 class ReliableOutboxAutoConfigurationTest {
 

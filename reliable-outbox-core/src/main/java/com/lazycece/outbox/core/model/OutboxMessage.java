@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public class OutboxMessage {
 

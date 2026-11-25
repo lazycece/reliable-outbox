@@ -21,7 +21,6 @@ package com.lazycece.outbox.core.repository;
  * error, ignore it, or reconcile it.
  *
  * @author lazycece
- * @date 2026/11/15
  */
 public class DuplicateMessageException extends RuntimeException {
 

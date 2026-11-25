@@ -17,7 +17,6 @@ package com.lazycece.outbox.core.client;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public class MessageTooLargeException extends IllegalArgumentException {
 

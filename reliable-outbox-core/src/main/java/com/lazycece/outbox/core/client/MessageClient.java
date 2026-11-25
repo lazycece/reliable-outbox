@@ -20,7 +20,6 @@ import com.lazycece.outbox.core.repository.DuplicateMessageException;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public interface MessageClient {
 

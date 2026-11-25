@@ -50,7 +50,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 @AutoConfiguration(afterName = "org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration")
 @EnableConfigurationProperties(ReliableOutboxProperties.class)

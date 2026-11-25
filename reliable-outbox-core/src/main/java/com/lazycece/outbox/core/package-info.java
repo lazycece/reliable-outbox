@@ -15,6 +15,5 @@
  */
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 package com.lazycece.outbox.core;

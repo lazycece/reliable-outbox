@@ -17,7 +17,6 @@ package com.lazycece.outbox.core.spi;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public class NonRetryablePublishException extends PublishException {
 

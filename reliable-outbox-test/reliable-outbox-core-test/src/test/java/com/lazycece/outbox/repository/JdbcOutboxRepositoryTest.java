@@ -37,7 +37,6 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 class JdbcOutboxRepositoryTest {
 

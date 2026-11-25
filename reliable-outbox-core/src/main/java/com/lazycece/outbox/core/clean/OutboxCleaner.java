@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
  * {@code @Scheduled}, xxl-job, ElasticJob, Quartz, etc.).
  *
  * @author lazycece
- * @date 2026/11/11
  */
 public class OutboxCleaner {
 

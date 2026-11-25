@@ -40,7 +40,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 class MessageScannerTest {
 

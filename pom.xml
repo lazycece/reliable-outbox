@@ -189,7 +189,6 @@
                 <version>${maven.javadoc.plugin.version}</version>
                 <configuration>
                     <skip>${maven.javadoc.skip}</skip>
-                    <additionalJOption>-tag date:a:date</additionalJOption>
                     <locale>en_US</locale>
                     <charset>UTF-8</charset>
                     <encoding>UTF-8</encoding>

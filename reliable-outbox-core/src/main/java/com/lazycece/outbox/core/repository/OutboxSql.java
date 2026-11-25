@@ -21,7 +21,6 @@ package com.lazycece.outbox.core.repository;
  * <p>Each template contains a {@code %s} placeholder for the outbox table name.
  *
  * @author lazycece
- * @date 2026/11/19
  */
 final class OutboxSql {
 

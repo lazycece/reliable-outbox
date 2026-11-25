@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public class LoggingMessageListener implements MessageListener {
 

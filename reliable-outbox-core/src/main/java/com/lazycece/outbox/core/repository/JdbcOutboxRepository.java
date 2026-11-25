@@ -33,7 +33,6 @@ import org.springframework.jdbc.support.KeyHolder;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public class JdbcOutboxRepository implements OutboxRepository {
 

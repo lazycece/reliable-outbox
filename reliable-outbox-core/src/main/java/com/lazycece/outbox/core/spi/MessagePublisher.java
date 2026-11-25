@@ -19,7 +19,6 @@ import com.lazycece.outbox.core.model.OutboxMessage;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 public interface MessagePublisher {
 

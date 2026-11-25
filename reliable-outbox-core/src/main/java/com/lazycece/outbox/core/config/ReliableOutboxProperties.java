@@ -22,7 +22,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * @author lazycece
- * @date 2026/11/11
  */
 @ConfigurationProperties(prefix = "reliable-outbox")
 public class ReliableOutboxProperties {
