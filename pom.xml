@@ -4,7 +4,7 @@
         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.lazycece</groupId>
+    <groupId>com.lazycece.outbox</groupId>
     <artifactId>reliable-outbox-parent</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
@@ -80,22 +80,22 @@
                 <scope>import</scope>
             </dependency>
             <dependency>
-                <groupId>com.lazycece</groupId>
+                <groupId>com.lazycece.outbox</groupId>
                 <artifactId>reliable-outbox-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.lazycece</groupId>
+                <groupId>com.lazycece.outbox</groupId>
                 <artifactId>reliable-outbox-spring-boot-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.lazycece</groupId>
+                <groupId>com.lazycece.outbox</groupId>
                 <artifactId>reliable-outbox-kafka</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.lazycece</groupId>
+                <groupId>com.lazycece.outbox</groupId>
                 <artifactId>reliable-outbox-rocketmq</artifactId>
                 <version>${project.version}</version>
             </dependency>

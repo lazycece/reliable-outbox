@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.lazycece</groupId>
+        <groupId>com.lazycece.outbox</groupId>
         <artifactId>reliable-outbox-sample</artifactId>
         <version>${revision}</version>
     </parent>
@@ -16,12 +16,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.lazycece</groupId>
+            <groupId>com.lazycece.outbox</groupId>
             <artifactId>reliable-outbox-sample-common</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.lazycece</groupId>
+            <groupId>com.lazycece.outbox</groupId>
             <artifactId>reliable-outbox-kafka</artifactId>
         </dependency>
         <dependency>

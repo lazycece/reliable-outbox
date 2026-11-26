@@ -103,12 +103,12 @@ Add the starter plus one broker adapter. For Kafka:
 
 ```xml
 <dependency>
-    <groupId>com.lazycece</groupId>
+    <groupId>com.lazycece.outbox</groupId>
     <artifactId>reliable-outbox-spring-boot-starter</artifactId>
     <version>${reliable-outbox.version}</version>
 </dependency>
 <dependency>
-    <groupId>com.lazycece</groupId>
+    <groupId>com.lazycece.outbox</groupId>
     <artifactId>reliable-outbox-kafka</artifactId>
     <version>${reliable-outbox.version}</version>
 </dependency>

@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.lazycece</groupId>
+        <groupId>com.lazycece.outbox</groupId>
         <artifactId>reliable-outbox-test</artifactId>
         <version>${revision}</version>
     </parent>
@@ -15,7 +15,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.lazycece</groupId>
+            <groupId>com.lazycece.outbox</groupId>
             <artifactId>reliable-outbox-core</artifactId>
             <scope>test</scope>
         </dependency>

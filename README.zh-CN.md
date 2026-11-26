@@ -96,12 +96,12 @@ reliable-outbox-core/src/main/resources/ddl/mysql/t_outbox.sql
 
 ```xml
 <dependency>
-    <groupId>com.lazycece</groupId>
+    <groupId>com.lazycece.outbox</groupId>
     <artifactId>reliable-outbox-spring-boot-starter</artifactId>
     <version>${reliable-outbox.version}</version>
 </dependency>
 <dependency>
-    <groupId>com.lazycece</groupId>
+    <groupId>com.lazycece.outbox</groupId>
     <artifactId>reliable-outbox-kafka</artifactId>
     <version>${reliable-outbox.version}</version>
 </dependency>
