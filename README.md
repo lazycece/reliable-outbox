@@ -92,7 +92,7 @@ flowchart LR
 Run the DDL in your business database (the component does **not** create tables for you):
 
 ```text
-reliable-outbox-core/src/main/resources/ddl/mysql/t_outbox.sql
+docs/ddl/mysql/t_outbox.sql
 ```
 
 The default table name is `t_outbox`; override it with `reliable-outbox.table-name`.
@@ -205,7 +205,7 @@ and observe outbox state, retries, dead letters, and replay:
 | Java | 17+ |
 | Spring Boot | 4.x |
 | RocketMQ client | 5.x |
-| Default DDL | MySQL (`ddl/mysql/t_outbox.sql`) |
+| Default DDL | MySQL (`docs/ddl/mysql/t_outbox.sql`) |
 | Build | Maven 3.8+ |
 
 The core is a plain library over Spring JDBC/Transaction APIs. Database dialects and table layouts

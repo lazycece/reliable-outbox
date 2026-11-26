@@ -85,7 +85,7 @@ flowchart LR
 在业务库执行 DDL（组件**不会**自动建表）：
 
 ```text
-reliable-outbox-core/src/main/resources/ddl/mysql/t_outbox.sql
+docs/ddl/mysql/t_outbox.sql
 ```
 
 默认表名为 `t_outbox`，可通过 `reliable-outbox.table-name` 修改。
@@ -191,7 +191,7 @@ reliable-outbox:
 | Java | 17+ |
 | Spring Boot | 4.x |
 | RocketMQ client | 5.x |
-| 默认 DDL | MySQL（`ddl/mysql/t_outbox.sql`） |
+| 默认 DDL | MySQL（`docs/ddl/mysql/t_outbox.sql`） |
 | 构建 | Maven 3.8+ |
 
 核心库基于 Spring JDBC/Transaction 的普通 API，数据库方言与表结构可通过 `OutboxRepository` SPI 适配。
