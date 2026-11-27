@@ -1,0 +1,22 @@
+CREATE TABLE  `t_outbox` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+  `msg_id` VARCHAR(64) NOT NULL COMMENT '消息唯一 ID，全局唯一',
+  `biz_code` VARCHAR(64) NOT NULL COMMENT '业务编码，用于区分不同业务方或发送场景',
+  `topic` VARCHAR(255) NOT NULL COMMENT '消息主题',
+  `partition_key` VARCHAR(255) DEFAULT NULL COMMENT '分区键，用于 Broker 分区选择与消费分组，不承诺顺序',
+  `payload` TEXT NOT NULL COMMENT '消息体，默认上限 65535 字节',
+  `headers` VARCHAR(1024) DEFAULT NULL COMMENT '透传元数据（如 traceId、tenantId、schemaVersion），默认上限 1024 字节',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '消息状态：0 待发送/重试、1 已发送、2 死信',
+  `retry_count` INT NOT NULL DEFAULT 0 COMMENT '已重试次数',
+  `next_retry_time` DATETIME(3) DEFAULT NULL COMMENT '下次重试时间（JVM 本地时间），扫描器据此判断消息是否到期',
+  `owner_token` VARCHAR(64) DEFAULT NULL COMMENT '当前投递租约的持有者标识，用于防止并发重复投递',
+  `owner_expire_at` DATETIME(3) DEFAULT NULL COMMENT '投递租约过期时间（JVM 本地时间），过期后可被其他实例抢占',
+  `sent_at` DATETIME(3) DEFAULT NULL COMMENT '发送成功时间（JVM 本地时间），清理任务按此字段筛选',
+  `last_error` VARCHAR(1000) DEFAULT NULL COMMENT '最近一次投递失败的异常信息',
+  `created_at` DATETIME(3) NOT NULL COMMENT '记录创建时间（JVM 本地时间）',
+  `updated_at` DATETIME(3) NOT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '记录更新时间（JVM 本地时间），未显式赋值时自动刷新',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_msg_id` (`msg_id`),
+  KEY `idx_status_next_retry` (`status`, `next_retry_time`),
+  KEY `idx_status_sent` (`status`, `sent_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

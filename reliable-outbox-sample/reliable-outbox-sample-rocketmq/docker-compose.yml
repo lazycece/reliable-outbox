@@ -1,0 +1,19 @@
+services:
+  namesrv:
+    image: apache/rocketmq:5.3.0
+    container_name: reliable-outbox-sample-rocketmq-namesrv
+    command: sh mqnamesrv
+    ports:
+      - "9876:9876"
+
+  broker:
+    image: apache/rocketmq:5.3.0
+    container_name: reliable-outbox-sample-rocketmq-broker
+    depends_on:
+      - namesrv
+    command: sh mqbroker -c /tmp/broker.conf -n namesrv:9876
+    volumes:
+      - ./broker.conf:/tmp/broker.conf
+    ports:
+      - "10909:10909"
+      - "10911:10911"

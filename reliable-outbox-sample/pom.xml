@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.lazycece.outbox</groupId>
+        <artifactId>reliable-outbox-parent</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>reliable-outbox-sample</artifactId>
+    <packaging>pom</packaging>
+    <name>reliable-outbox-sample</name>
+    <description>Runnable usage samples for reliable-outbox</description>
+
+    <properties>
+        <!-- Sample tests are part of the demonstration; run them by default. -->
+        <maven.test.skip>false</maven.test.skip>
+        <!-- Samples are installed locally so they can be run standalone, but never published. -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <maven.source.skip>true</maven.source.skip>
+        <central.skipPublishing>true</central.skipPublishing>
+    </properties>
+
+    <modules>
+        <module>reliable-outbox-sample-common</module>
+        <module>reliable-outbox-sample-kafka</module>
+        <module>reliable-outbox-sample-rocketmq</module>
+    </modules>
+
+</project>
