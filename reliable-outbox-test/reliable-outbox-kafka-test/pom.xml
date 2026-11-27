@@ -13,6 +13,11 @@
     <artifactId>reliable-outbox-kafka-test</artifactId>
     <name>reliable-outbox-kafka-test</name>
 
+    <properties>
+        <!-- Skip integration tests by default (e.g. during deploy); enable with -DskipITs=false -->
+        <skipITs>false</skipITs>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.lazycece.outbox</groupId>
@@ -37,6 +42,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <version>${maven.failsafe.plugin.version}</version>
+                <configuration>
+                    <skipITs>${skipITs}</skipITs>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
