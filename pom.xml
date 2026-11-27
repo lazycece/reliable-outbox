@@ -52,6 +52,7 @@
         <!-- Maven -->
         <maven.test.skip>false</maven.test.skip>
         <maven.deploy.skip>false</maven.deploy.skip>
+        <central.skipPublishing>false</central.skipPublishing>
         <maven.javadoc.skip>false</maven.javadoc.skip>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
@@ -63,7 +64,7 @@
         <maven.javadoc.plugin.version>3.5.0</maven.javadoc.plugin.version>
         <maven.gpg.plugin.version>1.6</maven.gpg.plugin.version>
         <flatten.maven.plugin.version>1.2.7</flatten.maven.plugin.version>
-        <central-publishing-maven-plugin.version>0.7.0</central-publishing-maven-plugin.version>
+        <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
 
         <!-- Opensource Package -->
         <spring-boot.version>4.1.1</spring-boot.version>
@@ -139,6 +140,7 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>CentralPortal</publishingServerId>
+                            <skipPublishing>${central.skipPublishing}</skipPublishing>
                             <deploymentName>deployment reliable-outbox ${revision}</deploymentName>
                             <!--                            <autoPublish>true</autoPublish>-->
                             <!--                            <waitUntil>published</waitUntil>-->
