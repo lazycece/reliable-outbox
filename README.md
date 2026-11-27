@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://adoptium.net/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![Maven Central](https://img.shields.io/maven-central/v/com.lazycece/reliable-outbox-spring-boot-starter.svg?label=maven%20central)](https://central.sonatype.com/artifact/com.lazycece/reliable-outbox-spring-boot-starter)
+[![Maven Central](https://img.shields.io/maven-central/v/com.lazycece.outbox/reliable-outbox-spring-boot-starter.svg?label=maven%20central)](https://central.sonatype.com/artifact/com.lazycece.outbox/reliable-outbox-spring-boot-starter)
 
 A reliable messaging component for Java and Spring Boot, built on the
 [Transactional Outbox](https://microservices.io/patterns/data/transactional-outbox.html) pattern.
