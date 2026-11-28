@@ -1,1 +1,2 @@
 com.lazycece.outbox.autoconfigure.ReliableOutboxAutoConfiguration
+com.lazycece.outbox.autoconfigure.ReliableOutboxAdminAutoConfiguration

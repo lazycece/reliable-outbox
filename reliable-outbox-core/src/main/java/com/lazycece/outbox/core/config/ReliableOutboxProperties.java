@@ -40,6 +40,8 @@ public class ReliableOutboxProperties {
 
     private final Limits limits = new Limits();
 
+    private final Admin admin = new Admin();
+
     @PostConstruct
     public void validate() {
         dispatch.validate();
@@ -47,6 +49,7 @@ public class ReliableOutboxProperties {
         retry.validate();
         clean.validate();
         limits.validate();
+        admin.validate();
     }
 
     public boolean isEnabled() {
@@ -83,6 +86,10 @@ public class ReliableOutboxProperties {
 
     public Limits getLimits() {
         return limits;
+    }
+
+    public Admin getAdmin() {
+        return admin;
     }
 
     /**
@@ -455,6 +462,49 @@ public class ReliableOutboxProperties {
 
         public void setHeadersBytes(int headersBytes) {
             this.headersBytes = headersBytes;
+        }
+    }
+
+    /**
+     * Management operation settings.
+     */
+    public static class Admin {
+
+        /**
+         * Whether to expose the
+         * {@link com.lazycece.outbox.core.admin.OutboxAdminService} bean. It is still only created
+         * when the active {@code OutboxRepository} also implements
+         * {@link com.lazycece.outbox.core.admin.OutboxAdminRepository}.
+         */
+        private boolean enabled = true;
+
+        /**
+         * Maximum number of {@code msg_id}s applied per SQL statement; larger batches are split
+         * into several statements to bound statement size.
+         */
+        private int chunkSize = 20;
+
+        void validate() {
+            if (chunkSize < 1) {
+                throw new IllegalStateException(
+                        "reliable-outbox.admin.chunk-size must be greater than 0");
+            }
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getChunkSize() {
+            return chunkSize;
+        }
+
+        public void setChunkSize(int chunkSize) {
+            this.chunkSize = chunkSize;
         }
     }
 }

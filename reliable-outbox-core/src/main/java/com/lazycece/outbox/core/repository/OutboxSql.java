@@ -145,4 +145,41 @@ final class OutboxSql {
             DELETE FROM %s
              WHERE id IN (%s)
                AND status = ?""";
+
+    static final String REPLAY_DEAD = """
+            UPDATE %s
+               SET status = ?,
+                   retry_count = 0,
+                   next_retry_time = ?,
+                   owner_token = NULL,
+                   owner_expire_at = NULL,
+                   last_error = NULL,
+                   updated_at = ?
+             WHERE msg_id IN (%s)
+               AND status = ?""";
+
+    static final String RETRY_PENDING_NOW = """
+            UPDATE %s
+               SET next_retry_time = ?,
+                   updated_at = ?
+             WHERE msg_id IN (%s)
+               AND status = ?
+               AND (owner_token IS NULL OR owner_expire_at < ?)""";
+
+    static final String MARK_PENDING_DEAD = """
+            UPDATE %s
+               SET status = ?,
+                   owner_token = NULL,
+                   owner_expire_at = NULL,
+                   next_retry_time = NULL,
+                   last_error = ?,
+                   updated_at = ?
+             WHERE msg_id IN (%s)
+               AND status = ?
+               AND (owner_token IS NULL OR owner_expire_at < ?)""";
+
+    static final String DELETE_DEAD = """
+            DELETE FROM %s
+             WHERE msg_id IN (%s)
+               AND status = ?""";
 }
