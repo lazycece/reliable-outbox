@@ -62,7 +62,7 @@ flowchart LR
     S[Your scheduler] -->|scan| C
     S -->|clean| C
     C -->|exhausted retries| F[Dead letter]
-    F -->|replay| C
+    M[Management<br/>operator / integrator] -. replay / retry / markDead / delete .-> C
 ```
 
 | Component | Responsibility |
