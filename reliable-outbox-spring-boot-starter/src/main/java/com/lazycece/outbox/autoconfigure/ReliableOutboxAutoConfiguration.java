@@ -58,8 +58,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 public class ReliableOutboxAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean
-    public OutboxRepository outboxRepository(DataSource dataSource,
+    @ConditionalOnMissingBean(OutboxRepository.class)
+    public JdbcOutboxRepository outboxRepository(DataSource dataSource,
             ReliableOutboxProperties properties) {
         return new JdbcOutboxRepository(new JdbcTemplate(dataSource), properties.getTableName());
     }

@@ -18,6 +18,7 @@ package com.lazycece.outbox.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.lazycece.outbox.core.admin.OutboxAdminService;
 import com.lazycece.outbox.core.client.MessageClient;
 import com.lazycece.outbox.core.clean.OutboxCleaner;
 import com.lazycece.outbox.core.deadletter.DeadLetterReplayer;
@@ -68,6 +69,12 @@ class ReliableOutboxAutoConfigurationTest {
                     "spring.datasource.driver-class-name=org.h2.Driver",
                     "spring.datasource.username=sa");
 
+    private final ApplicationContextRunner adminRunner = new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                    ReliableOutboxAutoConfiguration.class,
+                    ReliableOutboxAdminAutoConfiguration.class))
+            .withUserConfiguration(TestConfig.class);
+
     @Test
     void registersAllBeans() {
         runner.run(context -> {
@@ -80,6 +87,18 @@ class ReliableOutboxAutoConfigurationTest {
             assertThat(context).hasSingleBean(DeadLetterReplayer.class);
             assertThat(context).hasBean("reliableOutboxDispatchExecutor");
         });
+    }
+
+    @Test
+    void registersAdminServiceByDefault() {
+        adminRunner.run(context ->
+                assertThat(context).hasSingleBean(OutboxAdminService.class));
+    }
+
+    @Test
+    void adminDisabledPropertySkipsAdminService() {
+        adminRunner.withPropertyValues("reliable-outbox.admin.enabled=false")
+                .run(context -> assertThat(context).doesNotHaveBean(OutboxAdminService.class));
     }
 
     @Test

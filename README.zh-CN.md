@@ -36,6 +36,7 @@ reliable-outbox 无需分布式事务，也不依赖 MQ 的事务消息能力，
   ElasticJob 等任意调度框架驱动。
 - **多实例安全**：基于行级租约（`owner_token`）抢占，无需选主。
 - **失败治理**：可配置退避重试、转入死信、人工回放。
+- **管理处置**：按 `msg_id` 批量回放死信、立即重投、强制死信、删除死信。只做状态流转，投递仍由扫描器完成。
 - **有序保留与清理**：成功消息分批清理；死信保留以便排查。
 - **明确的事务边界**：`sendInTransaction` 加入调用方事务；`sendStandalone` 独立提交。
 
@@ -53,7 +54,7 @@ flowchart LR
     S[接入方调度] -->|scan| C
     S -->|clean| C
     C -->|重试耗尽| F[死信]
-    F -->|回放| C
+    M[管理处置<br/>运维 / 接入方] -. 回放 / 立即重投 / 强制死信 / 删除 .-> C
 ```
 
 | 组件 | 职责 |
@@ -65,6 +66,7 @@ flowchart LR
 | `MessageScanner` | `scan()` 扫描到期的 PENDING 消息，是首次投递与重试的唯一调度来源 |
 | `OutboxCleaner` | `clean()` / `clean(shardItem, shardTotal)` 分批清理已投递的过期记录 |
 | `DeadLetterHandler` / `DeadLetterReplayer` | 死信日志/告警与带状态条件的人工回放 |
+| `OutboxAdminService` | 按 `msg_id` 批量管理处置：回放、立即重投、强制死信、删除（仅状态流转） |
 | `MessageListener` | 投递成功/失败/死信事件，用于指标与告警扩展 |
 
 ## 模块
@@ -153,18 +155,54 @@ void clean() {
 }
 ```
 
-### 5. 配置
+### 5. 管理处置（可选）
 
-配置项统一以 `reliable-outbox` 为前缀：
+发现死信后（一般由告警触发），按 `msg_id` 进行处置。组件只提供库内、仅状态流转的方法——不含查询/列表、
+Web 控制台、权限与审计，这些由接入方负责；投递仍由扫描器完成，不会在管理调用内同步发布。
+
+```java
+@Autowired OutboxAdminService outboxAdminService;
+
+outboxAdminService.replayDead(msgIds);            // DEAD -> PENDING，清零重试/错误，立即到期
+outboxAdminService.retryPendingNow(msgIds);       // PENDING 立即到期（保留重试次数与错误）
+outboxAdminService.markDead(msgIds, "poison");    // PENDING -> DEAD，原因写入 last_error
+outboxAdminService.deleteDead(msgIds);            // 删除 DEAD 行
+```
+
+四种操作均为幂等条件更新；作用于 PENDING 的操作还要求租约为空，不会与在线 dispatcher 竞争同一条消息
+导致双发。入参按 `reliable-outbox.admin.chunk-size`（默认 20）分块。仅当生效的 `OutboxRepository` 同时实现
+`OutboxAdminRepository` 时才会装配该服务（`JdbcOutboxRepository` 已内置；可用 `reliable-outbox.admin.enabled=false`
+关闭）。
+
+### 6. 配置
+
+核心配置项以 `reliable-outbox` 为前缀，常用的几项如下：
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `table-name` | `t_outbox` | Outbox 表名 |
+| `dispatch.lease-duration` | 30s | 投递期间持有的租约时长，同时决定崩溃恢复时延 |
+| `dispatch.initial-grace` | 10s | 新消息可被扫描前的延迟（仅首次投递） |
+| `scan.batch-size` | 100 | 单次扫描查询最多返回条数 |
+| `retry.max-count` | 5 | 转入 DEAD 前的最大重试次数（不含首次） |
+| `retry.initial-interval` | 5s | 首次重试的退避基数 |
+| `retry.max-interval` | 60s | 退避间隔上限 |
+| `clean.retention` | 7d | SENT 消息保留时长 |
+| `limits.payload-bytes` | 65535 | payload 字节上限（`TEXT` 列上限） |
+| `limits.headers-bytes` | 1024 | headers 字节上限（`VARCHAR(1024)` 上限） |
+| `admin.enabled` | true | 是否装配 `OutboxAdminService` |
+| `admin.chunk-size` | 20 | 管理处置每条 SQL 处理的 `msg_id` 上限 |
 
 ```yaml
 reliable-outbox:
   table-name: t_outbox
-  kafka:
-    send-timeout: 5s
+  dispatch:
+    lease-duration: 30s
+  retry:
+    max-count: 5
 ```
 
-完整配置模型见[设计文档](docs/design/reliable-outbox.md)第 8.2 节。
+broker 专属配置（如 `reliable-outbox.kafka.send-timeout`，默认 5 秒）由对应适配模块提供，见第 2 步。
 
 ## 投递语义
 

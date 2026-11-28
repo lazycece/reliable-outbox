@@ -309,6 +309,88 @@ class JdbcOutboxRepositoryTest {
         assertThat(repository.minSentAt()).isNull();
     }
 
+    @Test
+    void replayDeadOnlyResetsDeadMessages() {
+        OutboxMessage dead = message("dead");
+        OutboxMessage pending = message("pending");
+        repository.insert(dead);
+        repository.insert(pending);
+        LocalDateTime now = LocalDateTime.now();
+        jdbcTemplate.update(
+                "UPDATE t_outbox SET status = 2, retry_count = 16, last_error = 'x' WHERE id = ?",
+                dead.getId());
+
+        assertThat(repository.replayDead(List.of("dead", "pending", "missing"), now))
+                .isEqualTo(1);
+
+        OutboxMessage reset = repository.findById(dead.getId());
+        assertThat(reset.getStatus()).isEqualTo(OutboxStatus.PENDING);
+        assertThat(reset.getRetryCount()).isZero();
+        assertThat(reset.getLastError()).isNull();
+        assertWithinOneMilli(reset.getNextRetryTime(), now);
+        assertThat(repository.findById(pending.getId()).getStatus()).isEqualTo(OutboxStatus.PENDING);
+        assertThat(repository.replayDead(List.of(), now)).isZero();
+    }
+
+    @Test
+    void retryPendingNowSkipsLiveLeaseAndPreservesRetryState() {
+        LocalDateTime now = LocalDateTime.now();
+        OutboxMessage free = message("free");
+        free.setNextRetryTime(now.plusDays(1));
+        OutboxMessage leased = message("leased");
+        leased.setNextRetryTime(now.plusDays(1));
+        repository.insert(free);
+        repository.insert(leased);
+        jdbcTemplate.update("UPDATE t_outbox SET retry_count = 3 WHERE id = ?", free.getId());
+        repository.tryAcquire(leased.getId(), "owner", now.plusSeconds(60), now);
+
+        assertThat(repository.retryPendingNow(List.of("free", "leased"), now)).isEqualTo(1);
+
+        OutboxMessage updated = repository.findById(free.getId());
+        assertWithinOneMilli(updated.getNextRetryTime(), now);
+        assertThat(updated.getRetryCount()).isEqualTo(3);
+
+        OutboxMessage stillLeased = repository.findById(leased.getId());
+        assertThat(stillLeased.getOwnerToken()).isEqualTo("owner");
+        assertThat(stillLeased.getNextRetryTime()).isAfter(now);
+    }
+
+    @Test
+    void markPendingAsDeadSkipsLiveLeaseAndStoresReason() {
+        LocalDateTime now = LocalDateTime.now();
+        OutboxMessage free = message("free");
+        OutboxMessage leased = message("leased");
+        repository.insert(free);
+        repository.insert(leased);
+        repository.tryAcquire(leased.getId(), "owner", now.plusSeconds(60), now);
+
+        assertThat(repository.markPendingAsDead(
+                List.of("free", "leased", "missing"), "poison", now)).isEqualTo(1);
+
+        OutboxMessage dead = repository.findById(free.getId());
+        assertThat(dead.getStatus()).isEqualTo(OutboxStatus.DEAD);
+        assertThat(dead.getLastError()).isEqualTo("poison");
+        assertThat(dead.getNextRetryTime()).isNull();
+
+        OutboxMessage stillLeased = repository.findById(leased.getId());
+        assertThat(stillLeased.getStatus()).isEqualTo(OutboxStatus.PENDING);
+        assertThat(stillLeased.getOwnerToken()).isEqualTo("owner");
+    }
+
+    @Test
+    void deleteDeadOnlyDeletesDeadMessages() {
+        OutboxMessage dead = message("dead");
+        OutboxMessage pending = message("pending");
+        repository.insert(dead);
+        repository.insert(pending);
+        jdbcTemplate.update("UPDATE t_outbox SET status = 2 WHERE id = ?", dead.getId());
+
+        assertThat(repository.deleteDead(List.of("dead", "pending", "missing"))).isEqualTo(1);
+        assertThat(repository.findById(dead.getId())).isNull();
+        assertThat(repository.findById(pending.getId())).isNotNull();
+        assertThat(repository.deleteDead(List.of())).isZero();
+    }
+
     private static void assertWithinOneMilli(LocalDateTime actual, LocalDateTime expected) {
         assertThat(Duration.between(expected, actual).abs())
                 .isLessThanOrEqualTo(Duration.ofMillis(1));

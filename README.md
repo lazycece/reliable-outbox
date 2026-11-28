@@ -41,6 +41,8 @@ You get end-to-end eventual consistency with a plain relational database and any
   drive from Spring `@Scheduled`, xxl-job, ElasticJob, or any scheduler.
 - **Multi-instance safe** — row-level lease (`owner_token`) claiming; no leader election required.
 - **Failure handling** — configurable backoff retries, dead-letter state, and manual replay.
+- **Management operations** — batch, `msg_id`-based dead-letter replay, immediate retry, forced dead
+  marking, and dead-letter deletion. State-only; the scanner still performs delivery.
 - **Bounded retention** — successful messages are deleted in batches; dead letters are retained for
   investigation.
 - **Explicit transaction boundaries** — `sendInTransaction` joins the caller's transaction;
@@ -60,7 +62,7 @@ flowchart LR
     S[Your scheduler] -->|scan| C
     S -->|clean| C
     C -->|exhausted retries| F[Dead letter]
-    F -->|replay| C
+    M[Management<br/>operator / integrator] -. replay / retry / markDead / delete .-> C
 ```
 
 | Component | Responsibility |
@@ -72,6 +74,7 @@ flowchart LR
 | `MessageScanner` | `scan()` finds due PENDING messages — the only scheduling source for first publish and retries |
 | `OutboxCleaner` | `clean()` / `clean(shardItem, shardTotal)` deletes dispatched, expired rows |
 | `DeadLetterHandler` / `DeadLetterReplayer` | Dead-letter logging/alerts and conditional manual replay |
+| `OutboxAdminService` | Batch `msg_id`-based management: replay, retry now, force dead, delete (state-only) |
 | `MessageListener` | Publish success/failure/dead-letter events for metrics and alerting |
 
 ## Modules
@@ -162,18 +165,58 @@ void clean() {
 }
 ```
 
-### 5. Configure
+### 5. Management operations (optional)
 
-Properties use the `reliable-outbox` prefix:
+When a dead letter is detected (usually from an alert), you dispose of it by `msg_id`. The component
+exposes only in-library, state-only operations — no query, list, web console, permissions, or audit;
+those belong to the integrator. Delivery is still performed by the scanner, never inside the admin
+call.
+
+```java
+@Autowired OutboxAdminService outboxAdminService;
+
+outboxAdminService.replayDead(msgIds);            // DEAD -> PENDING, resets retry/error, due now
+outboxAdminService.retryPendingNow(msgIds);       // PENDING -> due now (keeps retry count/error)
+outboxAdminService.markDead(msgIds, "poison");    // PENDING -> DEAD, reason stored in last_error
+outboxAdminService.deleteDead(msgIds);            // delete DEAD rows
+```
+
+All four are idempotent conditional updates; operations on PENDING rows also require a free lease, so
+they never race an in-flight dispatcher into a double publish. Inputs are chunked by
+`reliable-outbox.admin.chunk-size` (default 20). The service is auto-registered only when the active
+`OutboxRepository` also implements `OutboxAdminRepository` (built in for `JdbcOutboxRepository`;
+disable with `reliable-outbox.admin.enabled=false`). 
+
+### 6. Configure
+
+Core properties use the `reliable-outbox` prefix. The most commonly tuned ones:
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `table-name` | `t_outbox` | Outbox table name |
+| `dispatch.lease-duration` | 30s | Lease held while publishing; also bounds crash-recovery latency |
+| `dispatch.initial-grace` | 10s | Delay before a new message becomes scannable (first delivery only) |
+| `scan.batch-size` | 100 | Max messages per scan query |
+| `retry.max-count` | 5 | Max retries before a message becomes DEAD (excluding the first send) |
+| `retry.initial-interval` | 5s | Base backoff of the first retry |
+| `retry.max-interval` | 60s | Backoff ceiling |
+| `clean.retention` | 7d | How long SENT messages are kept before deletion |
+| `limits.payload-bytes` | 65535 | Max payload size (`TEXT` column limit) |
+| `limits.headers-bytes` | 1024 | Max headers size (`VARCHAR(1024)` limit) |
+| `admin.enabled` | true | Whether `OutboxAdminService` is registered |
+| `admin.chunk-size` | 20 | `msg_id` count per admin SQL statement |
 
 ```yaml
 reliable-outbox:
   table-name: t_outbox
-  kafka:
-    send-timeout: 5s
+  dispatch:
+    lease-duration: 30s
+  retry:
+    max-count: 5
 ```
 
-See §8.2 of the [design document](docs/design/reliable-outbox.md) for the full configuration model.
+Broker-specific keys (e.g. `reliable-outbox.kafka.send-timeout`, default 5s) live with the adapter
+module — see step 2.
 
 ## Delivery semantics
 

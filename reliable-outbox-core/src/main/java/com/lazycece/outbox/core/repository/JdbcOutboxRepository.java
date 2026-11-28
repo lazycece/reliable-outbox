@@ -15,6 +15,7 @@
  */
 package com.lazycece.outbox.core.repository;
 
+import com.lazycece.outbox.core.admin.OutboxAdminRepository;
 import com.lazycece.outbox.core.model.OutboxMessage;
 import com.lazycece.outbox.core.model.OutboxStatus;
 import java.sql.PreparedStatement;
@@ -22,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -34,7 +36,7 @@ import org.springframework.jdbc.support.KeyHolder;
 /**
  * @author lazycece
  */
-public class JdbcOutboxRepository implements OutboxRepository {
+public class JdbcOutboxRepository implements OutboxRepository, OutboxAdminRepository {
 
     private static final Pattern TABLE_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]{0,63}");
 
@@ -220,6 +222,80 @@ public class JdbcOutboxRepository implements OutboxRepository {
         params[ids.size()] = STATUS_SENT;
         return jdbcTemplate.update(
                 OutboxSql.DELETE_SENT.formatted(tableName, inSql), params);
+    }
+
+    @Override
+    public int replayDead(Collection<String> msgIds, LocalDateTime now) {
+        if (msgIds.isEmpty()) {
+            return 0;
+        }
+        String inSql = placeholders(msgIds.size());
+        Object[] params = new Object[msgIds.size() + 4];
+        params[0] = STATUS_PENDING;
+        params[1] = now;
+        params[2] = now;
+        int index = 3;
+        for (String msgId : msgIds) {
+            params[index++] = msgId;
+        }
+        params[index] = STATUS_DEAD;
+        return jdbcTemplate.update(
+                OutboxSql.REPLAY_DEAD.formatted(tableName, inSql), params);
+    }
+
+    @Override
+    public int retryPendingNow(Collection<String> msgIds, LocalDateTime now) {
+        if (msgIds.isEmpty()) {
+            return 0;
+        }
+        String inSql = placeholders(msgIds.size());
+        Object[] params = new Object[msgIds.size() + 4];
+        params[0] = now;
+        params[1] = now;
+        int index = 2;
+        for (String msgId : msgIds) {
+            params[index++] = msgId;
+        }
+        params[index++] = STATUS_PENDING;
+        params[index] = now;
+        return jdbcTemplate.update(
+                OutboxSql.RETRY_PENDING_NOW.formatted(tableName, inSql), params);
+    }
+
+    @Override
+    public int markPendingAsDead(Collection<String> msgIds, String reason, LocalDateTime now) {
+        if (msgIds.isEmpty()) {
+            return 0;
+        }
+        String inSql = placeholders(msgIds.size());
+        Object[] params = new Object[msgIds.size() + 5];
+        params[0] = STATUS_DEAD;
+        params[1] = reason;
+        params[2] = now;
+        int index = 3;
+        for (String msgId : msgIds) {
+            params[index++] = msgId;
+        }
+        params[index++] = STATUS_PENDING;
+        params[index] = now;
+        return jdbcTemplate.update(
+                OutboxSql.MARK_PENDING_DEAD.formatted(tableName, inSql), params);
+    }
+
+    @Override
+    public int deleteDead(Collection<String> msgIds) {
+        if (msgIds.isEmpty()) {
+            return 0;
+        }
+        String inSql = placeholders(msgIds.size());
+        Object[] params = msgIds.toArray(new Object[msgIds.size() + 1]);
+        params[msgIds.size()] = STATUS_DEAD;
+        return jdbcTemplate.update(
+                OutboxSql.DELETE_DEAD.formatted(tableName, inSql), params);
+    }
+
+    private static String placeholders(int size) {
+        return String.join(",", Collections.nCopies(size, "?"));
     }
 
     private String sql(String template) {
