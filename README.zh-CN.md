@@ -176,16 +176,33 @@ outboxAdminService.deleteDead(msgIds);            // 删除 DEAD 行
 
 ### 6. 配置
 
-配置项统一以 `reliable-outbox` 为前缀：
+核心配置项以 `reliable-outbox` 为前缀，常用的几项如下：
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `table-name` | `t_outbox` | Outbox 表名 |
+| `dispatch.lease-duration` | 30s | 投递期间持有的租约时长，同时决定崩溃恢复时延 |
+| `dispatch.initial-grace` | 10s | 新消息可被扫描前的延迟（仅首次投递） |
+| `scan.batch-size` | 100 | 单次扫描查询最多返回条数 |
+| `retry.max-count` | 5 | 转入 DEAD 前的最大重试次数（不含首次） |
+| `retry.initial-interval` | 5s | 首次重试的退避基数 |
+| `retry.max-interval` | 60s | 退避间隔上限 |
+| `clean.retention` | 7d | SENT 消息保留时长 |
+| `limits.payload-bytes` | 65535 | payload 字节上限（`TEXT` 列上限） |
+| `limits.headers-bytes` | 1024 | headers 字节上限（`VARCHAR(1024)` 上限） |
+| `admin.enabled` | true | 是否装配 `OutboxAdminService` |
+| `admin.chunk-size` | 20 | 管理处置每条 SQL 处理的 `msg_id` 上限 |
 
 ```yaml
 reliable-outbox:
   table-name: t_outbox
-  kafka:
-    send-timeout: 5s
+  dispatch:
+    lease-duration: 30s
+  retry:
+    max-count: 5
 ```
 
-完整配置模型见[设计文档](docs/design/reliable-outbox.md)第 8.2 节。
+broker 专属配置（如 `reliable-outbox.kafka.send-timeout`，默认 5 秒）由对应适配模块提供，见第 2 步。
 
 ## 投递语义
 

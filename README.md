@@ -189,16 +189,34 @@ disable with `reliable-outbox.admin.enabled=false`).
 
 ### 6. Configure
 
-Properties use the `reliable-outbox` prefix:
+Core properties use the `reliable-outbox` prefix. The most commonly tuned ones:
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `table-name` | `t_outbox` | Outbox table name |
+| `dispatch.lease-duration` | 30s | Lease held while publishing; also bounds crash-recovery latency |
+| `dispatch.initial-grace` | 10s | Delay before a new message becomes scannable (first delivery only) |
+| `scan.batch-size` | 100 | Max messages per scan query |
+| `retry.max-count` | 5 | Max retries before a message becomes DEAD (excluding the first send) |
+| `retry.initial-interval` | 5s | Base backoff of the first retry |
+| `retry.max-interval` | 60s | Backoff ceiling |
+| `clean.retention` | 7d | How long SENT messages are kept before deletion |
+| `limits.payload-bytes` | 65535 | Max payload size (`TEXT` column limit) |
+| `limits.headers-bytes` | 1024 | Max headers size (`VARCHAR(1024)` limit) |
+| `admin.enabled` | true | Whether `OutboxAdminService` is registered |
+| `admin.chunk-size` | 20 | `msg_id` count per admin SQL statement |
 
 ```yaml
 reliable-outbox:
   table-name: t_outbox
-  kafka:
-    send-timeout: 5s
+  dispatch:
+    lease-duration: 30s
+  retry:
+    max-count: 5
 ```
 
-See §8.2 of the [design document](docs/design/reliable-outbox.md) for the full configuration model.
+Broker-specific keys (e.g. `reliable-outbox.kafka.send-timeout`, default 5s) live with the adapter
+module — see step 2.
 
 ## Delivery semantics
 
