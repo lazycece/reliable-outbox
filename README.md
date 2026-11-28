@@ -41,6 +41,8 @@ You get end-to-end eventual consistency with a plain relational database and any
   drive from Spring `@Scheduled`, xxl-job, ElasticJob, or any scheduler.
 - **Multi-instance safe** — row-level lease (`owner_token`) claiming; no leader election required.
 - **Failure handling** — configurable backoff retries, dead-letter state, and manual replay.
+- **Management operations** — batch, `msg_id`-based dead-letter replay, immediate retry, forced dead
+  marking, and dead-letter deletion. State-only; the scanner still performs delivery.
 - **Bounded retention** — successful messages are deleted in batches; dead letters are retained for
   investigation.
 - **Explicit transaction boundaries** — `sendInTransaction` joins the caller's transaction;
@@ -72,6 +74,7 @@ flowchart LR
 | `MessageScanner` | `scan()` finds due PENDING messages — the only scheduling source for first publish and retries |
 | `OutboxCleaner` | `clean()` / `clean(shardItem, shardTotal)` deletes dispatched, expired rows |
 | `DeadLetterHandler` / `DeadLetterReplayer` | Dead-letter logging/alerts and conditional manual replay |
+| `OutboxAdminService` | Batch `msg_id`-based management: replay, retry now, force dead, delete (state-only) |
 | `MessageListener` | Publish success/failure/dead-letter events for metrics and alerting |
 
 ## Modules
@@ -162,7 +165,29 @@ void clean() {
 }
 ```
 
-### 5. Configure
+### 5. Management operations (optional)
+
+When a dead letter is detected (usually from an alert), you dispose of it by `msg_id`. The component
+exposes only in-library, state-only operations — no query, list, web console, permissions, or audit;
+those belong to the integrator. Delivery is still performed by the scanner, never inside the admin
+call.
+
+```java
+@Autowired OutboxAdminService outboxAdminService;
+
+outboxAdminService.replayDead(msgIds);            // DEAD -> PENDING, resets retry/error, due now
+outboxAdminService.retryPendingNow(msgIds);       // PENDING -> due now (keeps retry count/error)
+outboxAdminService.markDead(msgIds, "poison");    // PENDING -> DEAD, reason stored in last_error
+outboxAdminService.deleteDead(msgIds);            // delete DEAD rows
+```
+
+All four are idempotent conditional updates; operations on PENDING rows also require a free lease, so
+they never race an in-flight dispatcher into a double publish. Inputs are chunked by
+`reliable-outbox.admin.chunk-size` (default 20). The service is auto-registered only when the active
+`OutboxRepository` also implements `OutboxAdminRepository` (built in for `JdbcOutboxRepository`;
+disable with `reliable-outbox.admin.enabled=false`). 
+
+### 6. Configure
 
 Properties use the `reliable-outbox` prefix:
 

@@ -23,7 +23,7 @@
 - 已发送的消息可自动清理，死信保留以供人工处理。
 - 提供 `sendInTransaction` 与 `sendStandalone` 两个入口，事务语义明确，内部共用同一套流程。
 - 多实例并发安全，进程崩溃后可自愈。
-- 死信具备监控、告警与人工回放能力。
+- 死信具备监控、告警能力；并提供按 `msg_id` 的批量管理处置（回放、立即重投、强制死信、删除死信）。
 
 ### 1.3 能力边界
 
@@ -31,6 +31,7 @@
 - 不保证投递顺序，同一 `partition_key` 内亦然。
 - 消息体默认上限 64KB（65,535 字节），headers 上限 1KB（1,024 字节）。
 - 时间统一使用 JVM 本地时间，列为 `DATETIME(3)`，不做时区换算。
+- 管理处置为**仅写**能力，不含查询/列表/详情；Web 管理台、权限与审计由接入方负责。
 
 完整约束见第 10 节。
 
@@ -59,6 +60,7 @@
 | `OutboxCleaner` | `clean()` / `clean(shardItem, shardTotal)` 分批清理过期 SENT；不内置调度 |
 | `DeadLetterHandler` | 死信日志、告警与监控事件 |
 | `DeadLetterReplayer` | 死信回放，带状态条件 |
+| `OutboxAdminService` | 按 `msg_id` 批量管理处置（回放/立即重投/强制死信/删除），只做状态流转 |
 | `MessageListener` | 投递、失败、死信、租约丢失事件，用于指标与告警 |
 | `ReliableOutboxProperties` | 统一配置模型 |
 
@@ -288,15 +290,29 @@ DELETE 始终带 `status = 1`，因此重复执行或并发执行都不会误删
 分片若错峰调用，后调用的分片可能读到已前移的 `minSent`，该轮高位会残留少量未删除行。这不影响最终结果：
 最低分片每轮都从全局最老行开始删除，保证持续推进，后续轮次即可收敛，不会永久遗漏。
 
-### 5.6 死信回放
+### 5.6 死信回放与管理操作
 
-故障修复后，运维通过受权限控制的管理入口触发回放：
+故障修复或人工判断后，运维按 `msg_id` 处置消息。组件只提供库内能力，调用权限、原因记录、审计与管理
+入口（Web/控制台）均由接入方负责。所有操作只做状态流转，**投递仍只由扫描器发起**，重复均属至少一次
+语义，消费端需幂等。有两个入口：
 
-1. 以条件更新将 DEAD 改回 PENDING：`WHERE msg_id = ? AND status = 2`。
-2. 同时将 `retry_count` 归零、清空租约与错误信息、`next_retry_time` 设为当前时间。
-3. 立即投递一次；失败则进入正常重试。
+- **单条即时回放**：`DeadLetterReplayer.replay(msgId)`，条件更新 DEAD→PENDING（`retry_count` 归零、
+  清租约与错误、`next_retry_time=now`）后立即投递一次，失败进入正常重试。
+- **批量管理处置**：`OutboxAdminService`（`OutboxAdminRepository`），按 `msg_id` 列表批量执行，只把
+  记录改为“到期(now)”，由扫描器拉起；管理请求内有界，不逐条同步投递。
 
-组件只提供这一基础能力。调用权限、原因记录与审计由接入方负责。回放同样可能重复投递，消费端仍需幂等。
+`OutboxAdminService` 提供四个操作：
+
+| 操作 | 效果 | 守卫 |
+| --- | --- | --- |
+| `replayDead(msgIds)` | DEAD→PENDING，`retry_count=0`、`next_retry_time=now` | `status=DEAD` |
+| `retryPendingNow(msgIds)` | PENDING 立即到期（保留重试与错误） | `status=PENDING AND` 非活租约 |
+| `markDead(msgIds, reason)` | PENDING→DEAD，原因写入 `last_error` | `status=PENDING AND` 非活租约 |
+| `deleteDead(msgIds)` | 删除 DEAD 行 | `status=DEAD` |
+
+作用于 PENDING 的操作带**租约守卫**（`owner_token IS NULL OR owner_expire_at < now`），与在线 dispatcher
+持有效租约的消息不竞争，避免双发；作用于 DEAD 的只判 `status`。全部为条件更新（CAS），重复调用安全。
+入参按 `chunk-size`（默认 20）分块执行。
 
 ## 6. 并发与可靠性
 
@@ -503,12 +519,24 @@ public interface OutboxRepository {   // 存储抽象，并发正确性与方言
 }
 ```
 
+可选的管理写操作接口（不并入 `OutboxRepository`，未实现则不装配管理服务）：
+
+```java
+public interface OutboxAdminRepository {
+    int replayDead(Collection<String> msgIds, LocalDateTime now);
+    int retryPendingNow(Collection<String> msgIds, LocalDateTime now);
+    int markPendingAsDead(Collection<String> msgIds, String reason, LocalDateTime now);
+    int deleteDead(Collection<String> msgIds);
+}
+```
+
 与调度相关的组件同样只提供能力、不内置调度：
 
 ```java
 public class MessageScanner     { public void scan(); }                          // 接入方周期调用
 public class OutboxCleaner      { public void clean(); public void clean(int shardItem, int shardTotal); }
-public class DeadLetterReplayer { public boolean replay(String msgId); }         // 建议置于受权限控制的管理入口之后
+public class DeadLetterReplayer { public boolean replay(String msgId); }         // 单条即时回放，建议置于受权限控制的管理入口之后
+public class OutboxAdminService { /* replayDead/retryPendingNow/markDead/deleteDead；只做状态流转，不 publish */ }
 ```
 
 ### 8.2 配置
@@ -533,10 +561,12 @@ public class DeadLetterReplayer { public boolean replay(String msgId); }        
 | `clean.max-batches-per-run` | 10 | 单轮清理最多处理批次数 |
 | `limits.payload-bytes` | 65535 | payload 字节上限，不得超过列上限 |
 | `limits.headers-bytes` | 1024 | headers 字节上限，不得超过列上限 |
+| `admin.enabled` | true | 是否为仓储装配 `OutboxAdminService`（需仓储实现管理写接口） |
+| `admin.chunk-size` | 20 | 管理处置每次 SQL 处理的 `msg_id` 上限，超出分块 |
 
 约定：
 
-- 启动校验覆盖几类易静默失效的配置：线程数、队列容量、批次大小、重试次数均需 ≥ 1；
+- 启动校验覆盖几类易静默失效的配置：线程数、队列容量、批次大小、重试次数、`admin.chunk-size` 均需 ≥ 1；
   `retry.initial-interval ≤ retry.max-interval`；`retry.jitter ≥ 0`；`clean.retention > 0`；
   `limits.payload-bytes ≤ 65535`、`limits.headers-bytes ≤ 1024`。后两项与默认 DDL 对齐，避免应用放行、
   数据库插入时失败。
@@ -552,6 +582,7 @@ public class DeadLetterReplayer { public boolean replay(String msgId); }        
 | 扩展点 | 职责 | 常见实现 |
 | --- | --- | --- |
 | `OutboxRepository` | 表读写与租约抢占，适配方言与表结构 | MySQL / PostgreSQL / Oracle |
+| `OutboxAdminRepository` | 可选，管理写操作（回放/立即重投/强制死信/删除）；未实现则不装配 `OutboxAdminService` | `JdbcOutboxRepository` 已内置 |
 | `TransactionExecutor` | 执行 MANDATORY / REQUIRES_NEW 事务并注册提交回调 | Spring Transaction / 其他事务框架 |
 | `MessagePublisher` | 投递到具体 MQ，正常返回即已确认 | Kafka / RocketMQ / RabbitMQ / Pulsar |
 | `MessageListener` | 成功、失败、死信、租约丢失事件，用于指标与告警 | Micrometer / 钉钉 / 企微 / 邮件 |
@@ -587,6 +618,10 @@ public class DeadLetterReplayer { public boolean replay(String msgId); }        
 
 自动配置不创建调度线程池，也不内置扫描/清理调度，因此无需 `@EnableScheduling`。唯一带有线程的是
 `reliableOutboxDispatchExecutor`，用于异步投递。重试同样只由扫描器驱动。
+
+`OutboxAdminService` 由独立的条件装配提供：仅当生效的 `OutboxRepository` 同时实现
+`OutboxAdminRepository` 且 `reliable-outbox.admin.enabled=true`（默认）时才创建，因此替换为不实现该接口的
+自定义仓储不会破坏启动。管理服务只做状态流转，不发布消息，也不提供 Web 入口。
 
 ## 9. 部署与运维
 
@@ -630,6 +665,19 @@ public class DeadLetterReplayer { public boolean replay(String msgId); }        
 SENT 默认保留 7 天，随后分批删除。DEAD 不删除、不迁移；人工排查后回放，或修正数据后再回放，消息始终
 保留在原表。
 
+### 9.5 管理处置
+
+死信的发现一般由监控告警触发（见 9.2 / 9.3）。定位到具体消息后，按下面的闭环处理：
+
+1. **发现**：告警携带 `msgId`，或接入方以自己的 SQL 检索出需要处置的 `msg_id` 列表。组件不提供查询
+   能力，`findByMsgId` 已可返回单行完整内容（含 `payload`、`last_error`）供排查。
+2. **处置**：把 `msg_id` 列表交给 `OutboxAdminService`，按需选择 `replayDead` / `retryPendingNow` /
+   `markDead` / `deleteDead`。
+3. **拉起**：处置只把记录改成“到期(now)”，随后由扫描器统一拉起投递，无需、也不会在管理请求内同步发布。
+
+这四种操作均为幂等条件更新，重复调用安全；作用于 PENDING 的操作带租约守卫，不会与在线 dispatcher
+竞争同一条消息。权限、原因记录、审计与操作入口由接入方封装，组件只暴露库内方法。
+
 ## 10. 约束与演进
 
 ### 10.1 已确定的约束
@@ -649,6 +697,7 @@ SENT 默认保留 7 天，随后分批删除。DEAD 不删除、不迁移；人�
 ### 10.2 演进方向
 
 - 补充更多 MQ 适配，完善监控面板与运维工具。
-- 评估 Claim Check 大消息与批量回放。
+- 评估 Claim Check 大消息。
 - 若确需严格投递顺序，优先评估 CDC（binlog/WAL 订阅）或数据库原生事务队列，不将本地消息表用作顺序通道。
-- 是否提供管理端接口（死信列表、详情、回放、指标查询）及配套权限模型，尚待确定。
+- 管理写操作（批量回放、立即重投、强制死信、删除死信）已在 `core` 提供；死信列表/详情查询、Web 管理台
+  及配套权限与审计模型仍由接入方负责，暂不内置。
